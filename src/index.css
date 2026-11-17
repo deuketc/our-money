@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  @apply bg-amber-50 text-slate-800 antialiased;
+  background-image:
+    radial-gradient(circle at 10% 0%, rgb(254 215 170 / 0.45), transparent 40%),
+    radial-gradient(circle at 90% 10%, rgb(196 181 253 / 0.35), transparent 40%);
+  background-attachment: fixed;
+}
