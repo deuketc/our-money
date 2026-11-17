@@ -212,7 +212,20 @@ export default function App() {
         */}
         <div className={`grid items-start gap-6 ${layout.grid}`}>
           <div className={layout.hero}>
-            <HeroBalance result={result} periodId={period.id} household={people.length > 1} />
+            <HeroBalance
+              result={result}
+              periodId={period.id}
+              household={people.length > 1}
+              action={
+                !isClosed && (
+                  <CloseMonth
+                    periodId={period.id}
+                    leftover={result.summary.balance}
+                    onConfirm={() => act({ type: 'closeMonth' })}
+                  />
+                )
+              }
+            />
           </div>
 
           <div className={`grid gap-6 md:grid-cols-2 ${layout.people}`}>
@@ -277,14 +290,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
-        {!isClosed && (
-          <CloseMonth
-            periodId={period.id}
-            leftover={result.summary.balance}
-            onConfirm={() => act({ type: 'closeMonth' })}
-          />
-        )}
       </main>
       {restoreDialog}
     </div>

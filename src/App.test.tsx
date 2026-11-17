@@ -189,12 +189,20 @@ describe('Visa, notes and closing the month', () => {
     expect(stored().periods[1].notes[1]).toMatchObject({ text: 'Dentist on the 20th', pinned: true })
   })
 
+  it('puts the Close month button in the balance card, with no separate section', () => {
+    render(<App />)
+    expect(within(hero()).getByRole('button', { name: 'Close month' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Close month' })).toHaveLength(1)
+    expect(screen.queryByText(/save it to history and start fresh/)).not.toBeInTheDocument()
+  })
+
   it('closes the month after confirming', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: 'Close month' }))
+    await user.click(within(hero()).getByRole('button', { name: 'Close month' }))
 
     const dialog = within(screen.getByRole('dialog', { name: 'Close November 2026?' }))
+    expect(dialog.getByText('Close November 2026 to save it to history and start fresh.')).toBeInTheDocument()
     expect(dialog.getByText('This month finishes with $3,900 left over.')).toBeInTheDocument()
     expect(dialog.queryByRole('checkbox')).not.toBeInTheDocument()
     await user.click(dialog.getByRole('button', { name: 'Close month' }))
@@ -202,6 +210,8 @@ describe('Visa, notes and closing the month', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Month')).toHaveValue('2026-12')
     expect(hero()).toHaveTextContent('December 2026')
+    // December is open, so its balance card offers Close month again.
+    expect(within(hero()).getByRole('button', { name: 'Close month' })).toBeInTheDocument()
     expect(stored().periods[1].status).toBe('closed')
     expect(stored().periods[1]).not.toHaveProperty('savedToSavings')
     expect(stored()).not.toHaveProperty('savings')

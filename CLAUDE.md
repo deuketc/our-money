@@ -17,7 +17,7 @@ A simple, friendly budgeting app for couples, families or individuals who want o
   - Next to them: "Last backed up" with the date, or "Never". The date is kept in local storage for this browser, not in the save file.
   - A gentle reminder appears if the last backup was more than 14 days ago.
   - Restore asks for confirmation first and warns that it will overwrite everything there now, mentioning any changes made since the last backup. With nothing entered yet (the first-run screen) it restores straight away.
-- **Close month**: one button with a confirmation step. It saves the period to history and starts a fresh one.
+- **Close month**: a small secondary button with a calendar-check icon in the bottom-right corner of the household balance card, shown only for the open month. There's no separate Close month section. It opens a confirmation dialog explaining "Close {Month} to save it to history and start fresh", how the month finishes, and what carries over or is cleared. Confirming saves the period to history and starts a fresh one.
 - **Carries over**: people, salaries and pay frequency, housing, card limit and pinned notes.
 - **Cleared**: the personal purchases list and unpinned notes.
 
@@ -205,14 +205,14 @@ In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fort
 ## Design
 
 - Bright and friendly style.
-- A big hero balance at the top that glows green or red.
+- A big hero balance at the top that glows green or red, with the Close month button in its bottom-right corner.
 - Clean cards for each person, the credit card and notes.
 - Icons from Lucide or Phosphor, like a house for Housing.
 - A chunky vector credit card showing the limit and available amounts on its face, with owing underneath and a usage bar that goes from green to orange to red.
 
 &#91;embedded content: Main screen wireframe · example numbers\]
 
-From top to bottom: header, hero balance, a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
+From top to bottom: header, hero balance (with Close month in its corner), a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
 
 ### Responsive layout
 

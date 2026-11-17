@@ -10,16 +10,20 @@ interface Props {
   onConfirm: () => void
 }
 
+/** A small secondary button for the hero balance card, styled for its green or red background. */
+const onHeroButtonClass =
+  'inline-flex items-center gap-1.5 rounded-xl bg-white/20 px-3 py-1.5 text-sm font-semibold text-white ' +
+  'ring-1 ring-white/40 backdrop-blur-sm transition hover:bg-white/30 active:scale-95 ' +
+  'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60'
+
+/** "Close month" button, with a confirmation dialog before anything happens. */
 export function CloseMonth({ periodId, leftover, onConfirm }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
-    <section className="flex flex-col items-center gap-3 rounded-[2rem] border-2 border-dashed border-violet-200 bg-white/50 p-6 text-center">
-      <p className="text-slate-600">
-        Finished with {formatPeriodLabel(periodId)}? Close it to save it to history and start fresh.
-      </p>
-      <button type="button" className={`${primaryButtonClass} px-6 py-3 text-lg`} onClick={() => setOpen(true)}>
-        <CalendarCheck className="size-5" aria-hidden />
+    <>
+      <button type="button" className={onHeroButtonClass} onClick={() => setOpen(true)}>
+        <CalendarCheck className="size-4" aria-hidden />
         Close month
       </button>
       {open && (
@@ -33,13 +37,15 @@ export function CloseMonth({ periodId, leftover, onConfirm }: Props) {
           }}
         />
       )}
-    </section>
+    </>
   )
 }
 
 function CloseMonthDialog({ periodId, leftover, onCancel, onConfirm }: Props & { onCancel: () => void }) {
+  const month = formatPeriodLabel(periodId)
   return (
-    <Modal title={`Close ${formatPeriodLabel(periodId)}?`} onCancel={onCancel}>
+    <Modal title={`Close ${month}?`} onCancel={onCancel}>
+      <p className="mb-3 text-slate-600">Close {month} to save it to history and start fresh.</p>
       <p className={`mb-4 font-semibold ${leftover < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
         {leftover < 0
           ? `This month finishes ${formatMoney(-leftover)} in the red.`

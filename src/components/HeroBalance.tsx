@@ -7,9 +7,11 @@ interface Props {
   result: PeriodResult
   periodId: string
   household: boolean
+  /** Shown in the bottom-right corner, e.g. the Close month button. */
+  action?: ReactNode
 }
 
-export function HeroBalance({ result, periodId, household }: Props) {
+export function HeroBalance({ result, periodId, household, action }: Props) {
   const { balance, totalSalary, totalHousing, totalVisaOwing } = result.summary
   const green = balance >= 0
 
@@ -38,11 +40,15 @@ export function HeroBalance({ result, periodId, household }: Props) {
           {green ? "You're in the green" : "You're in the red"}
         </p>
 
-        <dl className="mt-6 grid grid-cols-3 gap-2 text-sm sm:max-w-lg">
-          <HeroStat icon={<Wallet className="size-4" aria-hidden />} label="Income" value={totalSalary} />
-          <HeroStat icon={<Home className="size-4" aria-hidden />} label="Housing" value={totalHousing} />
-          <HeroStat icon={<CreditCard className="size-4" aria-hidden />} label="Visa" value={totalVisaOwing} />
-        </dl>
+        {/* Stats bottom-left, action bottom-right. In a narrow card the action wraps under the stats, still on the right. */}
+        <div className="mt-6 flex flex-wrap items-end gap-3">
+          <dl className="grid w-full grid-cols-3 gap-2 text-sm sm:w-auto sm:max-w-lg sm:flex-1">
+            <HeroStat icon={<Wallet className="size-4" aria-hidden />} label="Income" value={totalSalary} />
+            <HeroStat icon={<Home className="size-4" aria-hidden />} label="Housing" value={totalHousing} />
+            <HeroStat icon={<CreditCard className="size-4" aria-hidden />} label="Visa" value={totalVisaOwing} />
+          </dl>
+          {action && <div className="ml-auto">{action}</div>}
+        </div>
       </div>
     </section>
   )
