@@ -8,16 +8,18 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 - Income in, housing and card spending out, and a clear green or red balance at the end of the period.
 - Works for one or more people. With a single user, everything just counts as theirs.
 
-## Getting started and the monthly cycle
+## Getting started and the period cycle
 
-- **First run**: the app opens empty with a friendly prompt, "Add yourself to get started". Adding a person creates their named panel.
+- **First run**: the app opens empty with a friendly prompt, "Add yourself to get started". Adding a person creates their named panel. The first period starts that day.
 - **More people**: an "Add person" button creates a second panel. One person works fine too.
 - **Saving**: autosaves to local storage on every change. On startup the app calls `navigator.storage.persist()` so the browser doesn't clear that data when space runs low.
 - **Back up and Restore**: the file buttons are backup tools. "Back up" (download icon) writes everything to the JSON file; "Restore" (upload icon) loads a backup file.
   - Next to them: "Last backed up" with the date, or "Never". The date is kept in local storage for this browser, not in the save file.
   - A gentle reminder appears if the last backup was more than 14 days ago.
   - Restore asks for confirmation first and warns that it will overwrite everything there now, mentioning any changes made since the last backup. With nothing entered yet (the first-run screen) it restores straight away.
-- **Close month**: a small secondary button with a calendar-check icon in the bottom-right corner of the household balance card, shown only for the open month. There's no separate Close month section. It opens a confirmation dialog explaining "Close {Month} to save it to history and start fresh", how the month finishes, and what carries over or is cleared. Confirming saves the period to history and starts a fresh one.
+- **Periods are date ranges**, not calendar months. A period starts on the day it's created (first run, or the day the previous one closed) and ends on the day it's closed; the next period starts on that same day. Each has a unique id.
+- **Labels**: closed periods show their range, like "15 Nov – 15 Dec 2026", with both years if it crosses a year ("20 Dec 2026 – 15 Jan 2027"). The open period shows "15 Dec – now". These labels are used in the period drop-down, the balance card, the closed-period banner and the Close month dialog.
+- **Close month**: a small secondary button with a calendar-check icon in the bottom-right corner of the household balance card, shown only for the open period. There's no separate Close month section. It opens a confirmation dialog titled with the range the period will be saved as ("Close 5 Nov – 15 Dec 2026?"), explaining "Close 5 Nov – 15 Dec 2026 to save it to history and start fresh", how the period finishes, that a new period starts today, and what carries over or is cleared. Confirming ends the period today and starts a fresh one today.
 - **Carries over**: people, salaries and pay frequency, housing, card limit and pinned notes.
 - **Cleared**: the personal purchases list and unpinned notes.
 
@@ -57,14 +59,15 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 
 ## Notes panel
 
-- A list of dated note entries that either person can add, like "car rego due in March". Notes belong to each monthly period and are saved with it in the history. A "carry forward" (pin) option moves a note into the next period, so ongoing reminders stay visible.
+- A list of dated note entries that either person can add, like "car rego due in March". Notes belong to each period and are saved with it in the history. A "carry forward" (pin) option moves a note into the next period, so ongoing reminders stay visible.
 
 ## Period history
 
 - The app opens on the current period.
 - A drop-down lets you view or edit past periods.
 - Closing a period saves it to history and starts a fresh one.
-- Decided: periods are monthly, following the Visa statement dates. Pay frequency is handled by the salary conversion, not by the cycle.
+- Decided: periods are date ranges, from the day one opens to the day it's closed, so they can follow the Visa statement dates or any other rhythm. Pay frequency is handled by the salary conversion, not by the cycle.
+- The drop-down lists periods by their dates, newest first ("15 Dec – now", then "15 Nov – 15 Dec 2026" and so on).
 
 ## Data model
 
@@ -72,7 +75,7 @@ The file stores only what people type in. Balances and amounts owed are calculat
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "people": [
     {
       "id": "p1",
@@ -90,12 +93,12 @@ The file stores only what people type in. Balances and amounts owed are calculat
     }
   ],
   "card": { "limit": 8000, "splitDefault": 0.5 },
-  "currentPeriodId": "2026-11",
+  "currentPeriodId": "pd2",
   "periods": [
     {
-      "id": "2026-10",
+      "id": "pd1",
       "start": "2026-10-05",
-      "end": "2026-11-04",
+      "end": "2026-11-05",
       "status": "closed",
       "available": 4800,
       "purchases": [
@@ -136,9 +139,9 @@ The file stores only what people type in. Balances and amounts owed are calculat
       }
     },
     {
-      "id": "2026-11",
+      "id": "pd2",
       "start": "2026-11-05",
-      "end": "2026-12-04",
+      "end": null,
       "status": "open",
       "available": 5200,
       "purchases": [
@@ -165,13 +168,14 @@ The file stores only what people type in. Balances and amounts owed are calculat
 }
 ```
 
-In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fortnightly salary, so October still calculates correctly after his pay rise to $2,000. November is open and uses the live values from the top level.
+In this example, the first period ("5 Oct – 5 Nov 2026") is closed. Its snapshot keeps Charlie's old $1,900 fortnightly salary, so it still calculates correctly after his pay rise to $2,000. The second period ("5 Nov – now") started the day the first one closed. It's open, so it has no end date yet, and it uses the live values from the top level.
 
 - **Top level** (carries over): people, card limit and default split.
-- **periods**: an array with one object per month, each holding that month's available amount, purchases and notes.
-- **snapshot**: filled in when a month closes, so it keeps the salaries and housing as they were then. Editing a salary later doesn't change past months.
-- **version**: lets the file format be upgraded later.
-- **Retired fields**: files saved before the savings goal was removed may still contain `savings` (top level) and `savedToSavings` (on each period). They load fine; those fields are dropped on load and not saved again.
+- **periods**: an array with one object per period, in the order they were created, each holding that period's dates, available amount, purchases and notes.
+  - **id**: a unique id (a random UUID for new periods; "pd1" and "pd2" above are just short examples).
+  - **start**: the day the period was created. **end**: the day it was closed, or `null` while it's open. A closed period's `end` is the next period's `start`, and a period can close on the day it started.
+- **snapshot**: filled in when a period closes, so it keeps the salaries and housing as they were then. Editing a salary later doesn't change past periods.
+- **version**: the file format, currently 2. Only version 2 is accepted. Files from a newer version are refused with a friendly message, and older files (version 1 used calendar months) are rejected as invalid; there's no upgrade path, because no version 1 data is kept anywhere.
 
 ## Tech approach
 
@@ -256,12 +260,13 @@ npx vitest run -t "renders the app"  # tests matching a name
 
 ### Code layout
 
-- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, closed periods have snapshots, purchases point to real people). Change the data shape here first. `dropRetiredFields` strips fields from removed features (currently the savings goal's `savings` and `savedToSavings`) before validation, so old files still load; add to it when retiring a field rather than loosening the strict objects.
-- `src/calculations.ts`: pure derived values (monthly salary, Visa split, balances, stale-update check). Nothing derived is ever stored.
-- `src/store/reducer.ts`: pure reducer. Ids, timestamps and `by` arrive on the action (`meta`), so it never reads the clock. `closeMonth` builds the snapshot and opens the next period (starts the day after the old one ends; `available` resets to the card limit).
+- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, unique period ids, closed periods have an end date and a snapshot, open ones have neither, no period ends before it starts, purchases point to real people). Change the data shape here first. `CURRENT_VERSION` is 2 and is the only version accepted. If the format changes again and existing data must survive, add an upgrade step (a `z.preprocess` before the strict schema) rather than loosening the strict objects.
+- `src/calculations.ts`: pure derived values (monthly salary, Visa split, balances, stale-update check) and `periodsNewestFirst` (by start date; ties go to the later period in the array). Nothing derived is ever stored.
+- `src/format.ts`: display formatting, including `formatPeriodRange` for the period labels ("15 Nov – 15 Dec 2026", "15 Dec – now").
+- `src/store/reducer.ts`: pure reducer. Ids, timestamps, `by` and dates arrive on the action, so it never reads the clock. `closeMonth { date, nextPeriodId }` ends the open period on `date` (a date before its start counts as the start), snapshots people and card, and opens `nextPeriodId` starting that same day with no end date; `available` resets to the card limit. `createInitialState(today, periodId)` starts the first period on `today`.
 - `src/store/storage.ts`: local storage load/save. Data that fails validation is copied to `our-money:unreadable-backup` before the app starts fresh, so autosave can't destroy it.
 - `src/store/useAppStore.ts`: `useReducer` plus autosave. `dispatch(action, by)` adds `meta`.
-- Closed months stay editable: `updatePerson` and `updateCard` with a closed `periodId` edit that month's `snapshot`, never the live values. Names are only editable on the live person.
+- Closed periods stay editable: `updatePerson` and `updateCard` with a closed `periodId` edit that period's `snapshot`, never the live values. Names are only editable on the live person.
 - `src/layout.ts`: `mainLayout(peopleCount)` picks the `xl:` and `3xl:` grid and placement classes for the main screen (see Responsive layout). Class names are written out in full so Tailwind finds them; jsdom ignores breakpoints, so tests check the classes and structure, not the rendered columns.
 - `src/components/styles.ts`: shared class names, including `pageWidthClass` and `fieldRowClass`.
 - `src/fileSave.ts`: the file side of Back up/Restore, through the File System Access API, falling back to download/`<input type=file>`. The file handle is kept in IndexedDB so Back up writes to the same file after a reload. A restored file only becomes the backup target once it passes validation.

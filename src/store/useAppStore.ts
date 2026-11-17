@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useReducer } from 'react'
 import { createInitialState, reducer, type Action } from './reducer'
+import { todayIso } from '../format'
 import { loadState, saveState } from './storage'
 
 function init() {
-  return loadState() ?? createInitialState(new Date())
+  return loadState() ?? createInitialState(todayIso(), crypto.randomUUID())
 }
 
 /**

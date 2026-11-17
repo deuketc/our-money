@@ -22,14 +22,26 @@ export function formatMoneyWhole(amount: number): string {
   return wholeMoneyFormat.format(Math.round(amount) || 0)
 }
 
-/** "2026-11" → "November 2026". */
-export function formatPeriodLabel(periodId: string): string {
-  const [year, month] = periodId.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-NZ', {
-    month: 'long',
-    year: 'numeric',
+/** "2026-11-15" → "15 Nov", or "15 Nov 2026" with the year. */
+function dayMonth(date: string, withYear: boolean): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-NZ', {
+    day: 'numeric',
+    month: 'short',
+    ...(withYear ? { year: 'numeric' } : {}),
     timeZone: 'UTC',
   })
+}
+
+/**
+ * A period's label from its dates.
+ * - Closed: "15 Nov – 15 Dec 2026", or "20 Dec 2026 – 15 Jan 2027" when it
+ *   crosses a year.
+ * - Open (no end yet): "15 Dec – now".
+ */
+export function formatPeriodRange({ start, end }: { start: string; end: string | null }): string {
+  if (end === null) return `${dayMonth(start, false)} – now`
+  const sameYear = start.slice(0, 4) === end.slice(0, 4)
+  return `${dayMonth(start, !sameYear)} – ${dayMonth(end, true)}`
 }
 
 /** "2026-11-12" → "12 Nov". */

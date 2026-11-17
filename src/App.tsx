@@ -14,7 +14,7 @@ import { dangerButtonClass, ghostButtonClass, pageWidthClass } from './component
 import { VisaCard } from './components/VisaCard'
 import { VisaSplit } from './components/VisaSplit'
 import { FileTooBigError, openFile, saveToFile } from './fileSave'
-import { formatDate, formatPeriodLabel, todayIso } from './format'
+import { formatDate, formatPeriodRange, todayIso } from './format'
 import { useLastBackup } from './lastBackup'
 import { mainLayout } from './layout'
 import { parseSaveFile } from './saveFile'
@@ -25,10 +25,10 @@ import { usePreference } from './usePreference'
 
 const newId = () => crypto.randomUUID()
 
-/** Today if it falls inside the period, otherwise the period's start. */
+/** Today if it falls inside the period (an open one has no end yet), otherwise the period's start. */
 function defaultDateFor(period: Period): string {
   const today = todayIso()
-  return today >= period.start && today <= period.end ? today : period.start
+  return today >= period.start && (period.end === null || today <= period.end) ? today : period.start
 }
 
 interface PendingRestore {
@@ -172,7 +172,7 @@ export default function App() {
     state.periods.find((p) => p.id === selectedId) ??
     state.periods.find((p) => p.id === state.currentPeriodId)!
   const isClosed = period.status === 'closed'
-  const monthName = formatPeriodLabel(period.id)
+  const periodLabel = formatPeriodRange(period)
   const people = period.snapshot?.people ?? state.people
   const card = period.snapshot?.card ?? state.card
   const result = calculatePeriod(state, period)
@@ -199,8 +199,8 @@ export default function App() {
         {isClosed && (
           <p className="flex items-start gap-2 rounded-2xl bg-sky-100 px-4 py-3 text-sm font-medium text-sky-800">
             <History className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {monthName} is closed. It uses the pay, housing and card limit saved when it closed, so changes here only
-            affect {monthName}.
+            {periodLabel} is closed. It uses the pay, housing and card limit saved when it closed, so changes here only
+            affect this period.
           </p>
         )}
 
@@ -214,14 +214,14 @@ export default function App() {
           <div className={layout.hero}>
             <HeroBalance
               result={result}
-              periodId={period.id}
+              periodLabel={periodLabel}
               household={people.length > 1}
               action={
                 !isClosed && (
                   <CloseMonth
-                    periodId={period.id}
+                    start={period.start}
                     leftover={result.summary.balance}
-                    onConfirm={() => act({ type: 'closeMonth' })}
+                    onConfirm={(date) => act({ type: 'closeMonth', date, nextPeriodId: newId() })}
                   />
                 )
               }

@@ -5,6 +5,7 @@ import {
   daysSince,
   isBackupDue,
   isUpdateStale,
+  periodsNewestFirst,
   personalTotal,
   shareFractions,
   sharedSpend,
@@ -192,5 +193,23 @@ describe('daysSince', () => {
   it('counts whole days', () => {
     expect(daysSince('2026-11-01T09:30:00+13:00', new Date('2026-11-16T09:29:00+13:00'))).toBe(14)
     expect(daysSince('2026-11-01T09:30:00+13:00', new Date('2026-11-16T09:30:00+13:00'))).toBe(15)
+  })
+})
+
+describe('periodsNewestFirst', () => {
+  it('orders by start date, newest first', () => {
+    expect(periodsNewestFirst(example.periods).map((p) => p.id)).toEqual(['pd2', 'pd1'])
+  })
+
+  it('puts the later period first when two start on the same day', () => {
+    const closedSameDay = { ...october, id: 'a', start: '2026-11-05', end: '2026-11-05' }
+    const opened = { ...november, id: 'b' }
+    expect(periodsNewestFirst([closedSameDay, opened]).map((p) => p.id)).toEqual(['b', 'a'])
+  })
+
+  it('does not reorder the input', () => {
+    const periods = [...example.periods]
+    periodsNewestFirst(periods)
+    expect(periods.map((p) => p.id)).toEqual(['pd1', 'pd2'])
   })
 })

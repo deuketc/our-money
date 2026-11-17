@@ -2,7 +2,7 @@
 // action, so the same action always produces the same state (and tests
 // don't need to mock the clock). useAppStore fills in `meta`.
 
-import type { AppData, Card, Note, Person, Purchase, Snapshot } from '../schema'
+import { CURRENT_VERSION, type AppData, type Card, type Note, type Person, type Purchase, type Snapshot } from '../schema'
 
 export type Action =
   | { type: 'addPerson'; person: Person }
@@ -32,7 +32,13 @@ export type Action =
   | { type: 'addNote'; periodId: string; note: Note }
   | { type: 'updateNote'; periodId: string; noteId: string; changes: Partial<Omit<Note, 'id'>> }
   | { type: 'removeNote'; periodId: string; noteId: string }
-  | { type: 'closeMonth' }
+  | {
+      type: 'closeMonth'
+      /** The close date ("YYYY-MM-DD", normally today): ends this period and starts the next. */
+      date: string
+      /** Unique id for the new period. */
+      nextPeriodId: string
+    }
 
 export interface Meta {
   /** ISO timestamp of the change. */
@@ -106,7 +112,7 @@ function apply(state: AppData, action: Exclude<Action, { type: 'replaceState' }>
       }))
 
     case 'closeMonth':
-      return closeMonth(state)
+      return closeMonth(state, action.date, action.nextPeriodId)
   }
 }
 
@@ -132,35 +138,39 @@ function updatePeriod(
   }
 }
 
+
 /**
- * Closes the current period and opens the next one.
+ * Closes the current period on `date` and opens the next one.
+ * - Dates: periods are date ranges, not calendar months. The closed period
+ *   ends on `date` and the new one starts on that same day, with no end
+ *   date until it's closed in turn. A date before the period's start (a
+ *   clock set wrong) is treated as the start.
  * - Snapshot: copies of people and card as they are now, so later edits
- *   don't change this month's numbers.
+ *   don't change this period's numbers.
  * - Carries over: people, card and pinned notes (top-level data
  *   is untouched; pinned notes are copied into the new period).
  * - Cleared: purchases and unpinned notes.
- * - The new period starts the day after this one ends and runs one month.
- *   Its available amount starts at the card limit (nothing owing) until
- *   the next statement is entered.
+ * - The new period's available amount starts at the card limit (nothing
+ *   owing) until the next statement is entered.
  */
-function closeMonth(state: AppData): AppData {
+function closeMonth(state: AppData, date: string, nextPeriodId: string): AppData {
   const current = state.periods.find((p) => p.id === state.currentPeriodId)
   if (!current || current.status !== 'open') return state
+  if (state.periods.some((p) => p.id === nextPeriodId)) return state
 
-  const { start, end } = nextPeriodDates(current.end)
-  const nextId = start.slice(0, 7)
-  if (state.periods.some((p) => p.id === nextId)) return state
+  const end = date < current.start ? current.start : date
 
   const closed = {
     ...current,
     status: 'closed' as const,
+    end,
     snapshot: structuredClone({ people: state.people, card: state.card }),
   }
 
   const opened = {
-    id: nextId,
-    start,
-    end,
+    id: nextPeriodId,
+    start: end,
+    end: null,
     status: 'open' as const,
     available: state.card.limit,
     purchases: [],
@@ -170,62 +180,23 @@ function closeMonth(state: AppData): AppData {
 
   return {
     ...state,
-    currentPeriodId: nextId,
+    currentPeriodId: nextPeriodId,
     periods: [...state.periods.map((p) => (p.id === current.id ? closed : p)), opened],
   }
 }
 
-// ---------- Dates ----------
-// Dates are "YYYY-MM-DD" strings handled in UTC so time zones and daylight
-// saving can't shift them.
-
-function parseDate(date: string): Date {
-  return new Date(`${date}T00:00:00Z`)
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-function addDays(date: string, days: number): string {
-  const d = parseDate(date)
-  d.setUTCDate(d.getUTCDate() + days)
-  return formatDate(d)
-}
-
-/** Same day next month, clamped to the month's length (31 Jan → 28 Feb). */
-function addOneMonth(date: string): string {
-  const d = parseDate(date)
-  const year = d.getUTCFullYear()
-  const month = d.getUTCMonth() + 1
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-  return formatDate(new Date(Date.UTC(year, month, Math.min(d.getUTCDate(), lastDay))))
-}
-
-/** The period after one ending on `previousEnd`: starts the next day, runs one month. */
-export function nextPeriodDates(previousEnd: string): { start: string; end: string } {
-  const start = addDays(previousEnd, 1)
-  return { start, end: addDays(addOneMonth(start), -1) }
-}
-
-/** First-run state: no people, one open period starting today. */
-export function createInitialState(today: Date): AppData {
-  const start = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-')
-  const end = addDays(addOneMonth(start), -1)
+/** First-run state: no people, one open period starting `today` ("YYYY-MM-DD"). */
+export function createInitialState(today: string, periodId: string): AppData {
   return {
-    version: 1,
+    version: CURRENT_VERSION,
     people: [],
     card: { limit: 0, splitDefault: 0.5 },
-    currentPeriodId: start.slice(0, 7),
+    currentPeriodId: periodId,
     periods: [
       {
-        id: start.slice(0, 7),
-        start,
-        end,
+        id: periodId,
+        start: today,
+        end: null,
         status: 'open',
         available: 0,
         purchases: [],

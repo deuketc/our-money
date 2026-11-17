@@ -1,17 +1,18 @@
 import { CreditCard, Home, Sparkles, TriangleAlert, Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { PeriodResult } from '../calculations'
-import { formatMoney, formatMoneyWhole, formatPeriodLabel } from '../format'
+import { formatMoney, formatMoneyWhole } from '../format'
 
 interface Props {
   result: PeriodResult
-  periodId: string
+  /** The period's label, e.g. "15 Dec – now". */
+  periodLabel: string
   household: boolean
   /** Shown in the bottom-right corner, e.g. the Close month button. */
   action?: ReactNode
 }
 
-export function HeroBalance({ result, periodId, household, action }: Props) {
+export function HeroBalance({ result, periodLabel, household, action }: Props) {
   const { balance, totalSalary, totalHousing, totalVisaOwing } = result.summary
   const green = balance >= 0
 
@@ -30,7 +31,7 @@ export function HeroBalance({ result, periodId, household, action }: Props) {
 
       <div className="relative">
         <p className="font-semibold text-white/85">
-          {household ? 'Household left over' : 'Left over'} · {formatPeriodLabel(periodId)}
+          {household ? 'Household left over' : 'Left over'} · {periodLabel}
         </p>
         <p className="mt-1 text-6xl font-black tracking-tight tabular-nums drop-shadow-sm sm:text-7xl">
           {formatMoneyWhole(balance)}

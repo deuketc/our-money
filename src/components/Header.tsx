@@ -1,7 +1,7 @@
 import { BellRing, CalendarDays, Check, ChevronDown, Clock, Download, PiggyBank, Upload, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { daysSince, isBackupDue, isUpdateStale } from '../calculations'
-import { formatDate, formatPeriodLabel, formatRelative } from '../format'
+import { daysSince, isBackupDue, isUpdateStale, periodsNewestFirst } from '../calculations'
+import { formatDate, formatPeriodRange, formatRelative } from '../format'
 import type { AppData } from '../schema'
 import { useNow } from '../useNow'
 import { ghostButtonClass, pageWidthClass, primaryButtonClass } from './styles'
@@ -29,7 +29,7 @@ export function Header(props: Props) {
   const updatedBy = data.people.find((p) => p.id === lastUpdated?.by)?.name
   const updateStale = lastUpdated !== null && isUpdateStale(lastUpdated.at, now)
   const backupDue = isBackupDue(lastBackupAt, now)
-  const newestFirst = [...data.periods].sort((a, b) => b.id.localeCompare(a.id))
+  const newestFirst = periodsNewestFirst(data.periods)
 
   return (
     <header className="z-10 border-b border-orange-100/70 bg-amber-50/80 backdrop-blur-md sm:sticky sm:top-0">
@@ -43,15 +43,14 @@ export function Header(props: Props) {
 
         <PickerSelect
           id="period-picker"
-          label="Month"
+          label="Period"
           icon={<CalendarDays className="size-4 text-violet-500" aria-hidden />}
           value={selectedPeriodId}
           onChange={props.onSelectPeriod}
         >
           {newestFirst.map((period) => (
             <option key={period.id} value={period.id}>
-              {formatPeriodLabel(period.id)}
-              {period.status === 'closed' ? ' (closed)' : ''}
+              {formatPeriodRange(period)}
             </option>
           ))}
         </PickerSelect>

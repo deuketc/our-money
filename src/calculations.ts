@@ -142,6 +142,20 @@ export function calculatePeriod(data: AppData, period: Period): PeriodResult {
   }
 }
 
+// ---------- Period order ----------
+
+/**
+ * Periods newest first, by start date. Periods can share a start date (one
+ * closed the day it opened), so ties go to the later one in the file, since
+ * new periods are always added at the end.
+ */
+export function periodsNewestFirst(periods: Period[]): Period[] {
+  return periods
+    .map((period, index) => ({ period, index }))
+    .sort((a, b) => b.period.start.localeCompare(a.period.start) || b.index - a.index)
+    .map(({ period }) => period)
+}
+
 // ---------- Last updated and last backed up ----------
 
 const DAY_MS = 24 * 60 * 60 * 1000

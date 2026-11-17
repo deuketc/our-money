@@ -4,16 +4,17 @@
 //
 // Objects are strict (unknown keys are rejected) and cross-references are
 // checked, so broken or tampered files fail to load rather than half-load.
-// The one exception is fields from retired features, which are dropped
-// before validation so older save files still load (see dropRetiredFields).
+// Only the current version is accepted; there's no upgrade from older formats.
 
 import { z } from 'zod'
+
+/** The save file format this app writes. */
+export const CURRENT_VERSION = 2
 
 const id = z.string().min(1).max(64)
 const money = z.number() // Zod rejects NaN and ±Infinity by default
 const amount = money.nonnegative()
 const isoDate = z.iso.date() // "YYYY-MM-DD"
-const periodId = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Expected "YYYY-MM"')
 
 export const payFrequencySchema = z.enum(['weekly', 'fortnightly', 'monthly', 'yearly'])
 
@@ -51,10 +52,17 @@ export const snapshotSchema = z.strictObject({
   card: cardSchema,
 })
 
+/**
+ * A budgeting period: a date range, not a calendar month. It starts on the
+ * day it's created (first run, or the day the previous one closed) and ends
+ * on the day it's closed. The next period starts on that same day.
+ */
 export const periodSchema = z.strictObject({
-  id: periodId,
+  /** Unique id (a random UUID for new periods). */
+  id,
   start: isoDate,
-  end: isoDate,
+  /** The day it was closed; null while open. */
+  end: isoDate.nullable(),
   status: z.enum(['open', 'closed']),
   available: amount,
   purchases: z.array(purchaseSchema),
@@ -69,37 +77,12 @@ export const lastUpdatedSchema = z.strictObject({
   by: id.nullable(),
 })
 
-/**
- * Removes fields left by features that no longer exist, so files saved by
- * older versions of the app still pass the strict schema:
- * - `savings` (top level) and `savedToSavings` (each period), from the
- *   retired savings goal.
- * Anything not shaped like a save file passes through for the schema to reject.
- */
-export function dropRetiredFields(input: unknown): unknown {
-  if (!isPlainObject(input)) return input
-  const { savings: _savings, ...rest } = input
-  if (!Array.isArray(rest.periods)) return rest
-  return {
-    ...rest,
-    periods: rest.periods.map((period: unknown) => {
-      if (!isPlainObject(period)) return period
-      const { savedToSavings: _saved, ...kept } = period
-      return kept
-    }),
-  }
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-const appDataObjectSchema = z
+export const appDataSchema = z
   .strictObject({
-    version: z.literal(1),
+    version: z.literal(CURRENT_VERSION),
     people: z.array(personSchema),
     card: cardSchema,
-    currentPeriodId: periodId,
+    currentPeriodId: id,
     periods: z.array(periodSchema).min(1),
     lastUpdated: lastUpdatedSchema.nullable(),
   })
@@ -124,7 +107,15 @@ const appDataObjectSchema = z
     if (openCount !== 1) issue(`Expected exactly one open period, found ${openCount}`, ['periods'])
 
     data.periods.forEach((period, i) => {
-      if (period.start > period.end) issue('Period starts after it ends', ['periods', i])
+      if (period.status === 'closed' && period.end === null) {
+        issue('Closed period is missing its end date', ['periods', i, 'end'])
+      }
+      if (period.status === 'open' && period.end !== null) {
+        issue('Open period should not have an end date yet', ['periods', i, 'end'])
+      }
+      if (period.end !== null && period.start > period.end) {
+        issue('Period ends before it starts', ['periods', i, 'end'])
+      }
 
       if (period.status === 'closed' && period.snapshot === null) {
         issue('Closed period is missing its snapshot', ['periods', i, 'snapshot'])
@@ -148,7 +139,6 @@ const appDataObjectSchema = z
     }
   })
 
-export const appDataSchema = z.preprocess(dropRetiredFields, appDataObjectSchema)
 
 export type PayFrequency = z.infer<typeof payFrequencySchema>
 export type Person = z.infer<typeof personSchema>
@@ -158,4 +148,4 @@ export type Note = z.infer<typeof noteSchema>
 export type Snapshot = z.infer<typeof snapshotSchema>
 export type Period = z.infer<typeof periodSchema>
 export type LastUpdated = z.infer<typeof lastUpdatedSchema>
-export type AppData = z.output<typeof appDataSchema>
+export type AppData = z.infer<typeof appDataSchema>

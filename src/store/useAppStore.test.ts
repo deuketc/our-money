@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { appDataSchema } from '../schema'
-import { cloneExample, oldSaveFile } from '../test/exampleData'
+import { todayIso } from '../format'
+import { cloneExample } from '../test/exampleData'
 import { STORAGE_KEY, saveState } from './storage'
 import { useAppStore } from './useAppStore'
 
@@ -24,12 +25,13 @@ describe('useAppStore', () => {
     expect(result.current.state).toEqual(cloneExample())
   })
 
-  it('loads older saved data and drops the retired savings fields', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(oldSaveFile()))
+  it('starts a first run with one open period from today and a unique id', () => {
     const { result } = renderHook(() => useAppStore())
-    expect(result.current.state).toEqual(cloneExample())
-    expect(stored().savings).toBeUndefined()
-    expect(stored().periods[0]).not.toHaveProperty('savedToSavings')
+    const [period] = result.current.state.periods
+    expect(period.start).toBe(todayIso())
+    expect(period.end).toBeNull()
+    expect(period.id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(result.current.state.currentPeriodId).toBe(period.id)
   })
 
   it('autosaves after every change', () => {
@@ -37,11 +39,11 @@ describe('useAppStore', () => {
     const { result } = renderHook(() => useAppStore())
 
     act(() => {
-      result.current.dispatch({ type: 'closeMonth' }, 'p1')
+      result.current.dispatch({ type: 'closeMonth', date: '2026-12-15', nextPeriodId: 'pd3' }, 'p1')
     })
 
     const saved = stored()
-    expect(saved.currentPeriodId).toBe('2026-12')
+    expect(saved.currentPeriodId).toBe('pd3')
     expect(saved.lastUpdated.by).toBe('p1')
     expect(appDataSchema.safeParse(saved).success).toBe(true)
   })

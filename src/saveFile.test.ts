@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { parseSaveFile } from './saveFile'
-import { cloneExample, oldSaveFile } from './test/exampleData'
+import { cloneExample } from './test/exampleData'
 
 describe('parseSaveFile', () => {
   it('accepts the example file', () => {
     expect(parseSaveFile(JSON.stringify(cloneExample()))).toEqual({ ok: true, data: cloneExample() })
-  })
-
-  it('accepts a file from before the savings goal was removed', () => {
-    expect(parseSaveFile(JSON.stringify(oldSaveFile()))).toEqual({ ok: true, data: cloneExample() })
   })
 
   it('explains non-JSON files', () => {
@@ -18,7 +14,7 @@ describe('parseSaveFile', () => {
   })
 
   it('explains files from a newer version', () => {
-    const result = parseSaveFile(JSON.stringify({ ...cloneExample(), version: 2 }))
+    const result = parseSaveFile(JSON.stringify({ ...cloneExample(), version: 3 }))
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.message).toMatch(/made by a newer version/)
   })

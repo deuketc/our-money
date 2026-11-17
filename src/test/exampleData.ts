@@ -2,18 +2,19 @@ import type { AppData } from '../schema'
 
 /** The example data model from CLAUDE.md. Clone before mutating. */
 export const exampleData: AppData = {
-  version: 1,
+  version: 2,
   people: [
     { id: 'p1', name: 'Charlie', salary: 2000, payFrequency: 'fortnightly', housing: 1200 },
     { id: 'p2', name: 'Layla', salary: 2200, payFrequency: 'fortnightly', housing: 1200 },
   ],
   card: { limit: 8000, splitDefault: 0.5 },
-  currentPeriodId: '2026-11',
+  currentPeriodId: 'pd2',
   periods: [
     {
-      id: '2026-10',
+      // "5 Oct – 5 Nov 2026": closed on 5 Nov, which is when the next one started.
+      id: 'pd1',
       start: '2026-10-05',
-      end: '2026-11-04',
+      end: '2026-11-05',
       status: 'closed',
       available: 4800,
       purchases: [
@@ -29,9 +30,10 @@ export const exampleData: AppData = {
       },
     },
     {
-      id: '2026-11',
+      // "5 Nov – now": open, so no end date yet.
+      id: 'pd2',
       start: '2026-11-05',
-      end: '2026-12-04',
+      end: null,
       status: 'open',
       available: 5200,
       purchases: [
@@ -46,21 +48,4 @@ export const exampleData: AppData = {
 
 export function cloneExample(): AppData {
   return structuredClone(exampleData)
-}
-
-/**
- * The example as an older version of the app saved it, with the fields
- * from the retired savings goal (`savings` and each period's
- * `savedToSavings`). These should load fine and be dropped.
- */
-export function oldSaveFile(): Record<string, unknown> {
-  const data = cloneExample()
-  return {
-    ...data,
-    savings: { goalName: 'Holiday', goalAmount: 10000, current: 3500, interestRate: 0.04 },
-    periods: data.periods.map((period) => ({
-      ...period,
-      savedToSavings: period.status === 'closed' ? 800 : null,
-    })),
-  }
 }

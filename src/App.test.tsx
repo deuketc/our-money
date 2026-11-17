@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { saveState, STORAGE_KEY } from './store/storage'
 import { cloneExample } from './test/exampleData'
@@ -170,11 +170,6 @@ describe('Visa, notes and closing the month', () => {
     expect(list.getAllByRole('listitem')[1]).toHaveTextContent('Layla50% of shared $1,350$1,350')
   })
 
-  it('has no savings goal', () => {
-    render(<App />)
-    expect(screen.queryByRole('region', { name: 'Savings goal' })).not.toBeInTheDocument()
-  })
-
   it('adds a note and pins it', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -196,28 +191,45 @@ describe('Visa, notes and closing the month', () => {
     expect(screen.queryByText(/save it to history and start fresh/)).not.toBeInTheDocument()
   })
 
-  it('closes the month after confirming', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(within(hero()).getByRole('button', { name: 'Close month' }))
+  describe('on 15 Dec 2026', () => {
+    // Only Date is faked, so userEvent's timers still run.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 11, 15, 10, 0))
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
 
-    const dialog = within(screen.getByRole('dialog', { name: 'Close November 2026?' }))
-    expect(dialog.getByText('Close November 2026 to save it to history and start fresh.')).toBeInTheDocument()
-    expect(dialog.getByText('This month finishes with $3,900 left over.')).toBeInTheDocument()
-    expect(dialog.queryByRole('checkbox')).not.toBeInTheDocument()
-    await user.click(dialog.getByRole('button', { name: 'Close month' }))
+    it('closes the period on today’s date after confirming, and starts the next one today', async () => {
+      const user = userEvent.setup()
+      render(<App />)
+      await user.click(within(hero()).getByRole('button', { name: 'Close month' }))
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Month')).toHaveValue('2026-12')
-    expect(hero()).toHaveTextContent('December 2026')
-    // December is open, so its balance card offers Close month again.
-    expect(within(hero()).getByRole('button', { name: 'Close month' })).toBeInTheDocument()
-    expect(stored().periods[1].status).toBe('closed')
-    expect(stored().periods[1]).not.toHaveProperty('savedToSavings')
-    expect(stored()).not.toHaveProperty('savings')
-    // Pinned note carried over; purchases cleared.
-    expect(section('Notes').getByText('Car rego due in March')).toBeInTheDocument()
-    expect(within(card('Charlie')).queryByRole('list')).not.toBeInTheDocument()
+      const dialog = within(screen.getByRole('dialog', { name: 'Close 5 Nov – 15 Dec 2026?' }))
+      expect(dialog.getByText('Close 5 Nov – 15 Dec 2026 to save it to history and start fresh.')).toBeInTheDocument()
+      expect(dialog.getByText('This period finishes with $3,900 left over.')).toBeInTheDocument()
+      expect(dialog.getByText(/A new period starts today, 15 Dec – now/)).toBeInTheDocument()
+      expect(dialog.queryByRole('checkbox')).not.toBeInTheDocument()
+      await user.click(dialog.getByRole('button', { name: 'Close month' }))
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      const next = stored().periods[2]
+      expect(next).toMatchObject({ start: '2026-12-15', end: null, status: 'open' })
+      expect(next.id).toMatch(/^[0-9a-f-]{36}$/)
+      expect(stored().currentPeriodId).toBe(next.id)
+      expect(stored().periods[1]).toMatchObject({ status: 'closed', start: '2026-11-05', end: '2026-12-15' })
+
+      expect(screen.getByLabelText('Period')).toHaveValue(next.id)
+      const options = within(screen.getByLabelText('Period')).getAllByRole('option')
+      expect(options.map((o) => o.textContent)).toEqual(['15 Dec – now', '5 Nov – 15 Dec 2026', '5 Oct – 5 Nov 2026'])
+      expect(hero()).toHaveTextContent('15 Dec – now')
+      // The new period is open, so its balance card offers Close month again.
+      expect(within(hero()).getByRole('button', { name: 'Close month' })).toBeInTheDocument()
+      // Pinned note carried over; purchases cleared.
+      expect(section('Notes').getByText('Car rego due in March')).toBeInTheDocument()
+      expect(within(card('Charlie')).queryByRole('list')).not.toBeInTheDocument()
+    })
   })
 
   it('does nothing when cancelled', async () => {
@@ -227,40 +239,52 @@ describe('Visa, notes and closing the month', () => {
     await user.keyboard('{Escape}')
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(stored().currentPeriodId).toBe('2026-11')
+    expect(stored().currentPeriodId).toBe('pd2')
   })
 
 })
 
-describe('past months', () => {
+describe('past periods', () => {
   beforeEach(() => {
     saveState(cloneExample())
   })
 
   const section = (name: string) => within(screen.getByRole('region', { name }))
 
-  it('lists every month, newest first', () => {
+  it('lists every period by its dates, newest first', () => {
     render(<App />)
-    const options = within(screen.getByLabelText('Month')).getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['November 2026', 'October 2026 (closed)'])
+    const options = within(screen.getByLabelText('Period')).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['5 Nov – now', '5 Oct – 5 Nov 2026'])
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(['pd2', 'pd1'])
   })
 
-  it('calculates a past month from its own snapshot', async () => {
+  it('shows both years when a closed period crosses a year', () => {
+    const data = cloneExample()
+    data.periods[0].start = '2025-12-20'
+    data.periods[0].end = '2026-01-15'
+    saveState(data)
+    render(<App />)
+    const options = within(screen.getByLabelText('Period')).getAllByRole('option')
+    expect(options[1]).toHaveTextContent('20 Dec 2025 – 15 Jan 2026')
+  })
+
+  it('calculates a past period from its own snapshot', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.selectOptions(screen.getByLabelText('Month'), '2026-10')
+    await user.selectOptions(screen.getByLabelText('Period'), 'pd1')
 
-    expect(screen.getByText(/October 2026 is closed/)).toBeInTheDocument()
+    expect(screen.getByText(/5 Oct – 5 Nov 2026 is closed/)).toBeInTheDocument()
+    expect(hero()).toHaveTextContent('5 Oct – 5 Nov 2026')
     expect(hero()).toHaveTextContent('$3,283')
     expect(within(card('Charlie')).getByLabelText('Salary')).toHaveValue('1900')
     expect(screen.queryByRole('button', { name: 'Close month' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add person' })).not.toBeInTheDocument()
   })
 
-  it("edits a past month's snapshot without touching the live values", async () => {
+  it("edits a past period's snapshot without touching the live values", async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.selectOptions(screen.getByLabelText('Month'), '2026-10')
+    await user.selectOptions(screen.getByLabelText('Period'), 'pd1')
 
     const salary = within(card('Charlie')).getByLabelText('Salary')
     await user.clear(salary)
@@ -276,15 +300,15 @@ describe('past months', () => {
     // October: limit 9,000 − available 4,800 = owing 4,200
     expect(section('Shared Visa').getByText('$4,200')).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Month'), '2026-11')
+    await user.selectOptions(screen.getByLabelText('Period'), 'pd2')
     expect(section('Shared Visa').getByLabelText('Limit')).toHaveValue('8000')
     expect(within(card('Charlie')).getByLabelText('Salary')).toHaveValue('2000')
   })
 
-  it('keeps the name read-only in a past month', async () => {
+  it('keeps the name read-only in a past period', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.selectOptions(screen.getByLabelText('Month'), '2026-10')
+    await user.selectOptions(screen.getByLabelText('Period'), 'pd1')
     expect(within(card('Charlie')).queryByLabelText('Name')).not.toBeInTheDocument()
   })
 })

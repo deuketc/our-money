@@ -1,6 +1,6 @@
 // Reading a save file: parse and validate, with messages people can act on.
 
-import { appDataSchema, type AppData } from './schema'
+import { appDataSchema, CURRENT_VERSION, type AppData } from './schema'
 
 export type ParseResult =
   | { ok: true; data: AppData }
@@ -22,7 +22,7 @@ export function parseSaveFile(text: string): ParseResult {
   }
 
   const version = (json as { version?: unknown } | null)?.version
-  if (typeof version === 'number' && version > 1) {
+  if (typeof version === 'number' && version > CURRENT_VERSION) {
     return {
       ok: false,
       message: 'This backup was made by a newer version of Our Money. Update the app and try again. Nothing was changed.',
