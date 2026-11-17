@@ -10,12 +10,13 @@ import { Modal } from './components/Modal'
 import { Notice, type NoticeData } from './components/Notice'
 import { NotesPanel } from './components/NotesPanel'
 import { PersonCard } from './components/PersonCard'
-import { dangerButtonClass, ghostButtonClass } from './components/styles'
+import { dangerButtonClass, ghostButtonClass, pageWidthClass } from './components/styles'
 import { VisaCard } from './components/VisaCard'
 import { VisaSplit } from './components/VisaSplit'
 import { FileTooBigError, openFile, saveToFile } from './fileSave'
 import { formatDate, formatPeriodLabel, todayIso } from './format'
 import { useLastBackup } from './lastBackup'
+import { mainLayout } from './layout'
 import { parseSaveFile } from './saveFile'
 import type { AppData, Period } from './schema'
 import type { Action } from './store/reducer'
@@ -176,6 +177,7 @@ export default function App() {
   const card = period.snapshot?.card ?? state.card
   const result = calculatePeriod(state, period)
   const fractions = shareFractions(people, card)
+  const layout = mainLayout(people.length)
 
   return (
     <div className="min-h-screen pb-16">
@@ -191,7 +193,7 @@ export default function App() {
         lastBackupAt={lastBackupAt}
       />
 
-      <main className="mx-auto max-w-5xl space-y-6 px-4 pt-6">
+      <main className={`mx-auto space-y-6 px-4 pt-6 ${pageWidthClass}`}>
         {noticeBanner}
 
         {isClosed && (
@@ -202,59 +204,79 @@ export default function App() {
           </p>
         )}
 
-        <HeroBalance result={result} periodId={period.id} household={people.length > 1} />
+        {/*
+          Below xl: hero, people, the Visa and its split, then notes, stacked.
+          xl: hero full width, then a column per person and a Visa/split/notes column.
+          3xl: four columns, with the hero moving to the top of the last one.
+          See layout.ts.
+        */}
+        <div className={`grid items-start gap-6 ${layout.grid}`}>
+          <div className={layout.hero}>
+            <HeroBalance result={result} periodId={period.id} household={people.length > 1} />
+          </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {people.map((person, index) => (
-            <PersonCard
-              key={`${period.id}-${person.id}`}
-              person={person}
-              result={result.people[index]}
-              index={index}
-              shareFraction={fractions.get(person.id) ?? 0}
-              sharedSpend={result.card.sharedSpend}
-              cardIsSetUp={card.limit > 0}
-              canEditName={!isClosed}
-              purchases={period.purchases.filter((p) => p.personId === person.id)}
-              defaultPurchaseDate={defaultDateFor(period)}
-              onUpdate={(changes) =>
-                act({ type: 'updatePerson', id: person.id, changes, periodId: period.id }, person.id)
-              }
-              onAddPurchase={(purchase) =>
-                act(
-                  {
-                    type: 'addPurchase',
-                    periodId: period.id,
-                    purchase: { ...purchase, id: newId(), personId: person.id },
-                  },
-                  person.id,
-                )
-              }
-              onRemovePurchase={(purchaseId) =>
-                act({ type: 'removePurchase', periodId: period.id, purchaseId }, person.id)
-              }
-            />
-          ))}
-          {!isClosed && <AddPersonCard onAdd={addPerson} />}
+          <div className={`grid gap-6 md:grid-cols-2 ${layout.people}`}>
+            {people.map((person, index) => (
+              <PersonCard
+                key={`${period.id}-${person.id}`}
+                person={person}
+                result={result.people[index]}
+                index={index}
+                shareFraction={fractions.get(person.id) ?? 0}
+                sharedSpend={result.card.sharedSpend}
+                cardIsSetUp={card.limit > 0}
+                canEditName={!isClosed}
+                purchases={period.purchases.filter((p) => p.personId === person.id)}
+                defaultPurchaseDate={defaultDateFor(period)}
+                onUpdate={(changes) =>
+                  act({ type: 'updatePerson', id: person.id, changes, periodId: period.id }, person.id)
+                }
+                onAddPurchase={(purchase) =>
+                  act(
+                    {
+                      type: 'addPurchase',
+                      periodId: period.id,
+                      purchase: { ...purchase, id: newId(), personId: person.id },
+                    },
+                    person.id,
+                  )
+                }
+                onRemovePurchase={(purchaseId) =>
+                  act({ type: 'removePurchase', periodId: period.id, purchaseId }, person.id)
+                }
+              />
+            ))}
+            {!isClosed && (
+              <div className={`grid ${layout.addPerson}`}>
+                <AddPersonCard onAdd={addPerson} />
+              </div>
+            )}
+          </div>
+
+          <div className={`flex flex-col gap-6 ${layout.side}`}>
+            <div className={`grid gap-6 md:grid-cols-2 xl:grid-cols-1 ${layout.visa}`}>
+              <VisaCard
+                card={result.card}
+                onChangeLimit={(limit) => act({ type: 'updateCard', periodId: period.id, changes: { limit } })}
+                onChangeAvailable={(available) => act({ type: 'updateCard', periodId: period.id, changes: { available } })}
+              />
+              <VisaSplit result={result} fractions={fractions} />
+            </div>
+
+            <div className={layout.notes}>
+              <NotesPanel
+                key={period.id}
+                notes={period.notes}
+                defaultDate={defaultDateFor(period)}
+                onAdd={(note) => act({ type: 'addNote', periodId: period.id, note: { ...note, id: newId() } })}
+                onTogglePin={(noteId, pinned) =>
+                  act({ type: 'updateNote', periodId: period.id, noteId, changes: { pinned } })
+                }
+                onRemove={(noteId) => act({ type: 'removeNote', periodId: period.id, noteId })}
+              />
+            </div>
+          </div>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <VisaCard
-            card={result.card}
-            onChangeLimit={(limit) => act({ type: 'updateCard', periodId: period.id, changes: { limit } })}
-            onChangeAvailable={(available) => act({ type: 'updateCard', periodId: period.id, changes: { available } })}
-          />
-          <VisaSplit result={result} fractions={fractions} />
-        </div>
-
-        <NotesPanel
-          key={period.id}
-          notes={period.notes}
-          defaultDate={defaultDateFor(period)}
-          onAdd={(note) => act({ type: 'addNote', periodId: period.id, note: { ...note, id: newId() } })}
-          onTogglePin={(noteId, pinned) => act({ type: 'updateNote', periodId: period.id, noteId, changes: { pinned } })}
-          onRemove={(noteId) => act({ type: 'removeNote', periodId: period.id, noteId })}
-        />
 
         {!isClosed && (
           <CloseMonth

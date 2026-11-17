@@ -4,7 +4,7 @@ import { daysSince, isBackupDue, isUpdateStale } from '../calculations'
 import { formatDate, formatPeriodLabel, formatRelative } from '../format'
 import type { AppData } from '../schema'
 import { useNow } from '../useNow'
-import { ghostButtonClass, primaryButtonClass } from './styles'
+import { ghostButtonClass, pageWidthClass, primaryButtonClass } from './styles'
 
 export type BackupStatus = 'idle' | 'working' | 'done'
 
@@ -33,7 +33,7 @@ export function Header(props: Props) {
 
   return (
     <header className="z-10 border-b border-orange-100/70 bg-amber-50/80 backdrop-blur-md sm:sticky sm:top-0">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-3 pb-2">
+      <div className={`mx-auto flex ${pageWidthClass} flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-3 pb-2`}>
         <div className="mr-auto flex items-center gap-2.5">
           <div className="flex size-10 rotate-[-6deg] items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-orange-400 text-white shadow-md shadow-pink-300/50">
             <PiggyBank className="size-6" strokeWidth={2} aria-hidden />
@@ -103,7 +103,7 @@ export function Header(props: Props) {
       </div>
 
       {(lastUpdated || backupDue) && (
-        <div className="mx-auto flex max-w-5xl flex-col gap-1.5 px-4 pb-2.5">
+        <div className={`mx-auto flex ${pageWidthClass} flex-col gap-1.5 px-4 pb-2.5`}>
           {lastUpdated &&
             (updateStale ? (
               <Reminder>

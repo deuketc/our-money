@@ -1,6 +1,18 @@
 // Shared class names. Editable fields are shaded boxes; calculated values
 // are plain text (see Design in CLAUDE.md).
 
+/**
+ * Page content width, shared by the header and main so they line up: the
+ * original width below xl, room for three columns at xl (capped at 1536px),
+ * then room for four at 3xl (capped at 2240px, so each column gets about
+ * 450–530px). Always centred with mx-auto, so it doesn't stretch on
+ * ultra-wide screens.
+ */
+export const pageWidthClass = 'max-w-5xl xl:max-w-screen-2xl 3xl:max-w-[140rem]'
+
+/** Caps a row of form fields so inputs stay a sensible width in wide columns. */
+export const fieldRowClass = 'max-w-xl'
+
 export const inputClass =
   'w-full rounded-xl border-2 border-violet-100 bg-violet-50/70 px-3 py-2 text-slate-800 ' +
   'placeholder:text-slate-400 transition outline-none ' +

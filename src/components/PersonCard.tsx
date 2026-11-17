@@ -5,7 +5,7 @@ import { formatMoney } from '../format'
 import type { PayFrequency, Person, Purchase } from '../schema'
 import { MoneyInput } from './MoneyInput'
 import { PurchaseList } from './PurchaseList'
-import { avatarColours, inputClass } from './styles'
+import { avatarColours, fieldRowClass, inputClass } from './styles'
 
 const FREQUENCIES: { value: PayFrequency; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
@@ -59,7 +59,7 @@ export function PersonCard(props: Props) {
 
       {/* Income */}
       <Section icon={<Wallet className="size-5" aria-hidden />} title="Income" tint="text-sky-500">
-          <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+          <div className={`grid grid-cols-[1fr_auto] items-end gap-2 ${fieldRowClass}`}>
             <MoneyInput label="Salary" value={person.salary} onChange={(salary) => props.onUpdate({ salary })} />
             <label>
               <span className="sr-only">Pay frequency</span>
@@ -84,6 +84,7 @@ export function PersonCard(props: Props) {
 
         <div className="mt-3 border-t border-dashed border-slate-200 pt-3">
           <MoneyInput
+            className={fieldRowClass}
             label="Housing"
             placeholder="rent or mortgage"
             value={person.housing}

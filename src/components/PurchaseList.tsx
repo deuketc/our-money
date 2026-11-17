@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { formatMoney, formatShortDate } from '../format'
 import type { Purchase } from '../schema'
 import { MoneyInput } from './MoneyInput'
-import { inputClass, primaryButtonClass } from './styles'
+import { fieldRowClass, inputClass, primaryButtonClass } from './styles'
 
 interface Props {
   personName: string
@@ -57,7 +57,7 @@ export function PurchaseList({ personName, purchases, defaultDate, onAdd, onRemo
 
       <form
         key={formKey}
-        className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
+        className={`grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] ${fieldRowClass}`}
         aria-label={`Add a purchase for ${personName}`}
         onSubmit={(e) => {
           e.preventDefault()

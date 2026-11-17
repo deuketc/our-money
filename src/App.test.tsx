@@ -335,3 +335,54 @@ describe('last updated reminder', () => {
     expect(screen.getByText(/Updated .* by Charlie/)).toBeInTheDocument()
   })
 })
+
+describe('wide-screen layout', () => {
+  // jsdom ignores breakpoints, so this checks the structure the xl and 3xl
+  // classes act on: the hero, the people area, and the Visa/split and notes
+  // (which become separate columns at 3xl), all in one grid.
+  const region = (name: string) => screen.getByRole('region', { name })
+
+  it('puts the hero, people, Visa and notes in one grid with their column classes', () => {
+    saveState(cloneExample())
+    render(<App />)
+    const peopleArea = card('Charlie').parentElement!
+    expect(card('Layla').parentElement).toBe(peopleArea)
+    expect(peopleArea).toHaveClass('xl:col-span-2', '3xl:col-[1/3]')
+
+    const grid = peopleArea.parentElement!
+    expect(grid).toHaveClass('xl:grid-cols-3', '3xl:grid-cols-4')
+
+    const heroCell = hero().parentElement!
+    expect(heroCell.parentElement).toBe(grid)
+    expect(heroCell).toHaveClass('xl:col-span-full', '3xl:col-[4/5]', '3xl:row-[1/2]')
+
+    const visaCell = region('Shared Visa').parentElement!
+    expect(visaCell).toContainElement(region('How the Visa splits'))
+    expect(visaCell).toHaveClass('3xl:col-[3/4]')
+
+    const notesCell = region('Notes').parentElement!
+    expect(notesCell).toHaveClass('3xl:col-[4/5]', '3xl:row-[2/3]')
+
+    // Below 3xl the Visa/split and notes stack in one column; at 3xl it dissolves.
+    const side = notesCell.parentElement!
+    expect(side.parentElement).toBe(grid)
+    expect(side).toContainElement(visaCell)
+    expect(side).toHaveClass('3xl:contents')
+  })
+
+  it('keeps the hero above the people below xl (document order)', () => {
+    saveState(cloneExample())
+    render(<App />)
+    expect(hero().compareDocumentPosition(card('Charlie')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(card('Layla').compareDocumentPosition(region('Shared Visa')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(region('How the Visa splits').compareDocumentPosition(region('Notes')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('uses two columns at xl and three at 3xl for one person', () => {
+    const solo = cloneExample()
+    solo.people = solo.people.filter((p) => p.id === 'p1')
+    saveState(solo)
+    render(<App />)
+    expect(card('Charlie').parentElement!.parentElement).toHaveClass('xl:grid-cols-2', '3xl:grid-cols-3')
+  })
+})

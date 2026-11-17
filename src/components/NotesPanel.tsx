@@ -2,7 +2,7 @@ import { NotebookPen, Pin, PinOff, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import { formatShortDate } from '../format'
 import type { Note } from '../schema'
-import { cardClass, inputClass, primaryButtonClass } from './styles'
+import { cardClass, fieldRowClass, inputClass, primaryButtonClass } from './styles'
 
 interface Props {
   notes: Note[]
@@ -72,7 +72,7 @@ export function NotesPanel({ notes, defaultDate, onAdd, onTogglePin, onRemove }:
 
       <form
         aria-label="Add a note"
-        className="mt-auto grid grid-cols-[1fr_auto] gap-2"
+        className={`mt-auto grid grid-cols-[1fr_auto] gap-2 ${fieldRowClass}`}
         onSubmit={(e) => {
           e.preventDefault()
           if (!trimmed) return

@@ -214,6 +214,20 @@ In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fort
 
 From top to bottom: header, hero balance, a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
 
+### Responsive layout
+
+- **Below `xl`**: the stacked layout above, at `max-w-5xl`. From `md`, person cards sit two to a row, and the Visa card and its split sit side by side.
+- **`xl` (1280px) and up**: the header and hero balance stay full width, then a grid:
+  - **Two or more people**: three columns, one person per column, with a third column stacking the Visa card, "How the Visa splits" and notes. A third person wraps onto a new row in the people columns.
+  - **One person**: two columns, the person and that same stacked column.
+- **`3xl` (1920px) and up**: `3xl` is a custom breakpoint (`--breakpoint-3xl: 120rem` in `src/index.css`). The header stays full width; the hero balance leaves the full-width row and everything sits in columns:
+  - **Two or more people**: four columns. Columns 1 and 2 are the first and second person, column 3 stacks the Visa card and "How the Visa splits", and column 4 stacks the hero balance (same large size and green or red style) with notes underneath.
+  - **One person**: three columns: the person, the Visa and split, then the hero and notes.
+  - **How it works**: the grid rows are `auto 1fr`, so the hero sets the first row and notes start right under it, while the people and the Visa column span both rows. The wrapper that stacks the Visa/split and notes below `3xl` uses `3xl:contents` so they can be placed in separate columns.
+- **Width cap**: content is centred and capped at `max-w-screen-2xl` (1536px) from `xl`, then `max-w-[140rem]` (2240px) from `3xl` so four columns aren't cramped (about 450px each at 1920px, 530px at the cap). The header and main share `pageWidthClass` so they line up.
+- **DOM order**: the hero, people, Visa/split and notes are all in one grid, in that order, so the stacked layout below `xl` reads the same as before.
+- **Inputs**: rows of form fields are capped at `max-w-xl` (`fieldRowClass`), so they stay a sensible width in wide columns, like the single-person layout.
+
 ## Later list (avoiding scope creep)
 
 - Mortgage payoff tracking and projections.
@@ -248,6 +262,8 @@ npx vitest run -t "renders the app"  # tests matching a name
 - `src/store/storage.ts`: local storage load/save. Data that fails validation is copied to `our-money:unreadable-backup` before the app starts fresh, so autosave can't destroy it.
 - `src/store/useAppStore.ts`: `useReducer` plus autosave. `dispatch(action, by)` adds `meta`.
 - Closed months stay editable: `updatePerson` and `updateCard` with a closed `periodId` edit that month's `snapshot`, never the live values. Names are only editable on the live person.
+- `src/layout.ts`: `mainLayout(peopleCount)` picks the `xl:` and `3xl:` grid and placement classes for the main screen (see Responsive layout). Class names are written out in full so Tailwind finds them; jsdom ignores breakpoints, so tests check the classes and structure, not the rendered columns.
+- `src/components/styles.ts`: shared class names, including `pageWidthClass` and `fieldRowClass`.
 - `src/fileSave.ts`: the file side of Back up/Restore, through the File System Access API, falling back to download/`<input type=file>`. The file handle is kept in IndexedDB so Back up writes to the same file after a reload. A restored file only becomes the backup target once it passes validation.
 - `src/saveFile.ts`: `parseSaveFile` turns JSON or Zod failures into friendly messages. `replaceState` loads a file and keeps its own `lastUpdated`.
 - "Who's using Our Money" is a per-browser preference (`our-money:me` in localStorage, not in the save file). It sets `lastUpdated.by`; if nobody is chosen, edits on a person's card are credited to that person.
