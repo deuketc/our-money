@@ -1,12 +1,12 @@
-import { BellRing, CalendarDays, Check, ChevronDown, Clock, FolderOpen, PiggyBank, Save, UserRound } from 'lucide-react'
+import { BellRing, CalendarDays, Check, ChevronDown, Clock, Download, PiggyBank, Upload, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { isUpdateStale } from '../calculations'
-import { formatPeriodLabel, formatRelative } from '../format'
+import { daysSince, isBackupDue, isUpdateStale } from '../calculations'
+import { formatDate, formatPeriodLabel, formatRelative } from '../format'
 import type { AppData } from '../schema'
 import { useNow } from '../useNow'
 import { ghostButtonClass, primaryButtonClass } from './styles'
 
-export type SaveStatus = 'idle' | 'saving' | 'saved'
+export type BackupStatus = 'idle' | 'working' | 'done'
 
 interface Props {
   data: AppData
@@ -15,20 +15,20 @@ interface Props {
   /** Person using the app on this device, if chosen. */
   meId: string | null
   onChangeMe: (personId: string) => void
-  onOpen: () => void
-  onSave: () => void
-  saveStatus: SaveStatus
+  onRestore: () => void
+  onBackUp: () => void
+  backupStatus: BackupStatus
+  /** ISO timestamp of this browser's last backup, or null if never. */
+  lastBackupAt: string | null
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 export function Header(props: Props) {
-  const { data, selectedPeriodId, saveStatus } = props
+  const { data, selectedPeriodId, backupStatus, lastBackupAt } = props
   const now = useNow()
   const { lastUpdated } = data
   const updatedBy = data.people.find((p) => p.id === lastUpdated?.by)?.name
-  const stale = lastUpdated !== null && isUpdateStale(lastUpdated.at, now)
-  const daysSince = lastUpdated ? Math.floor((now.getTime() - new Date(lastUpdated.at).getTime()) / DAY_MS) : 0
+  const updateStale = lastUpdated !== null && isUpdateStale(lastUpdated.at, now)
+  const backupDue = isBackupDue(lastBackupAt, now)
   const newestFirst = [...data.periods].sort((a, b) => b.id.localeCompare(a.id))
 
   return (
@@ -78,38 +78,63 @@ export function Header(props: Props) {
           </PickerSelect>
         )}
 
-        <div className="flex gap-2">
-          <button type="button" className={`${ghostButtonClass} bg-white shadow-sm`} onClick={props.onOpen}>
-            <FolderOpen className="size-4" aria-hidden />
-            Open
+        <div className="flex items-center gap-2">
+          <p className="mr-1 text-right text-xs leading-tight text-slate-500">
+            Last backed up
+            <br />
+            <span className={`font-semibold ${lastBackupAt ? 'text-slate-700' : 'text-amber-700'}`}>
+              {lastBackupAt ? formatDate(lastBackupAt) : 'Never'}
+            </span>
+          </p>
+          <button type="button" className={`${ghostButtonClass} bg-white shadow-sm`} onClick={props.onRestore}>
+            <Upload className="size-4" aria-hidden />
+            Restore
           </button>
-          <button type="button" className={primaryButtonClass} onClick={props.onSave} disabled={saveStatus === 'saving'}>
-            {saveStatus === 'saved' ? <Check className="size-4" aria-hidden /> : <Save className="size-4" aria-hidden />}
-            {saveStatus === 'saved' ? 'Saved' : 'Save'}
+          <button
+            type="button"
+            className={primaryButtonClass}
+            onClick={props.onBackUp}
+            disabled={backupStatus === 'working'}
+          >
+            {backupStatus === 'done' ? <Check className="size-4" aria-hidden /> : <Download className="size-4" aria-hidden />}
+            {backupStatus === 'done' ? 'Backed up' : 'Back up'}
           </button>
         </div>
       </div>
 
-      {lastUpdated && (
-        <div className="mx-auto max-w-5xl px-4 pb-2.5">
-          {stale ? (
-            <p className="flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm text-amber-900">
-              <BellRing className="size-4 shrink-0" aria-hidden />
-              <span>
-                <strong>It’s been {daysSince} days since the last update.</strong>
+      {(lastUpdated || backupDue) && (
+        <div className="mx-auto flex max-w-5xl flex-col gap-1.5 px-4 pb-2.5">
+          {lastUpdated &&
+            (updateStale ? (
+              <Reminder>
+                <strong>It’s been {daysSince(lastUpdated.at, now)} days since the last update.</strong>
                 {updatedBy ? ` ${updatedBy} made the last change.` : ''} A quick check-in keeps the numbers right.
-              </span>
-            </p>
-          ) : (
-            <p className="flex items-center gap-1.5 text-sm text-slate-500">
-              <Clock className="size-3.5" aria-hidden />
-              Updated {formatRelative(lastUpdated.at, now)}
-              {updatedBy ? ` by ${updatedBy}` : ''}
-            </p>
+              </Reminder>
+            ) : (
+              <p className="flex items-center gap-1.5 text-sm text-slate-500">
+                <Clock className="size-3.5" aria-hidden />
+                Updated {formatRelative(lastUpdated.at, now)}
+                {updatedBy ? ` by ${updatedBy}` : ''}
+              </p>
+            ))}
+          {backupDue && lastBackupAt && (
+            <Reminder icon={<Download className="size-4 shrink-0" aria-hidden />}>
+              <strong>It’s been {daysSince(lastBackupAt, now)} days since your last backup.</strong> Back up now to keep
+              a safe copy of your numbers.
+            </Reminder>
           )}
         </div>
       )}
     </header>
+  )
+}
+
+function Reminder({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm text-amber-900">
+      {icon ?? <BellRing className="size-4 shrink-0" aria-hidden />}
+      <span>{children}</span>
+    </p>
   )
 }
 

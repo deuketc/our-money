@@ -16,7 +16,7 @@ export function parseSaveFile(text: string): ParseResult {
   } catch {
     return {
       ok: false,
-      message: "This file isn't an Our Money save file. It couldn't be read as JSON.",
+      message: "This file isn't an Our Money backup. It couldn't be read as JSON. Nothing was changed.",
       details: [],
     }
   }
@@ -25,7 +25,7 @@ export function parseSaveFile(text: string): ParseResult {
   if (typeof version === 'number' && version > 1) {
     return {
       ok: false,
-      message: 'This file was saved by a newer version of Our Money. Update the app and try again.',
+      message: 'This backup was made by a newer version of Our Money. Update the app and try again. Nothing was changed.',
       details: [],
     }
   }
@@ -36,7 +36,7 @@ export function parseSaveFile(text: string): ParseResult {
   return {
     ok: false,
     message:
-      "This file doesn't look like an Our Money save file, or it's been changed outside the app. Nothing was loaded.",
+      "This file doesn't look like an Our Money backup, or it's been changed outside the app. Nothing was changed.",
     details: result.error.issues.slice(0, 3).map((issue) => {
       const where = issue.path.length ? issue.path.join(' › ') : 'File'
       return `${where}: ${issue.message}`

@@ -20,7 +20,7 @@ describe('parseSaveFile', () => {
   it('explains files from a newer version', () => {
     const result = parseSaveFile(JSON.stringify({ ...cloneExample(), version: 2 }))
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.message).toMatch(/newer version/)
+    if (!result.ok) expect(result.message).toMatch(/made by a newer version/)
   })
 
   it('lists up to three problems with where they are', () => {

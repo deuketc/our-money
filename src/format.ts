@@ -41,6 +41,11 @@ export function formatShortDate(date: string): string {
   })
 }
 
+/** An ISO timestamp as a local date: "17 Nov 2026". */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 /** Today's local date as "YYYY-MM-DD". */
 export function todayIso(now = new Date()): string {
   return [

@@ -12,7 +12,11 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 
 - **First run**: the app opens empty with a friendly prompt, "Add yourself to get started". Adding a person creates their named panel.
 - **More people**: an "Add person" button creates a second panel. One person works fine too.
-- **Saving**: autosaves to local storage on every change. A Save button writes everything to the JSON file.
+- **Saving**: autosaves to local storage on every change. On startup the app calls `navigator.storage.persist()` so the browser doesn't clear that data when space runs low.
+- **Back up and Restore**: the file buttons are backup tools. "Back up" (download icon) writes everything to the JSON file; "Restore" (upload icon) loads a backup file.
+  - Next to them: "Last backed up" with the date, or "Never". The date is kept in local storage for this browser, not in the save file.
+  - A gentle reminder appears if the last backup was more than 14 days ago.
+  - Restore asks for confirmation first and warns that it will overwrite everything there now, mentioning any changes made since the last backup. With nothing entered yet (the first-run screen) it restores straight away.
 - **Close month**: one button with a confirmation step. It saves the period to history and starts a fresh one.
 - **Carries over**: people, salaries and pay frequency, housing, card limit and pinned notes.
 - **Cleared**: the personal purchases list and unpinned notes.
@@ -172,9 +176,9 @@ In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fort
 ## Tech approach
 
 - React web app hosted as a static site (Netlify or GitHub Pages). No backend and no accounts.
-- Data stays on the device, in local storage plus a JSON file you can load and save.
+- Data stays on the device, in local storage plus a JSON backup file you can back up to and restore from.
 - The File System Access API (Chrome/Edge) saves back to the same file. Other browsers fall back to downloading a copy.
-- Export and import for backups.
+- Back up and Restore buttons for keeping a copy of the data.
 - For now, both people use one shared PC. Later, saving the file in a shared iCloud or Google Drive folder would allow separate devices.
 - Possible later: a desktop version with Electron or Tauri, or a PWA.
 
@@ -244,7 +248,9 @@ npx vitest run -t "renders the app"  # tests matching a name
 - `src/store/storage.ts`: local storage load/save. Data that fails validation is copied to `our-money:unreadable-backup` before the app starts fresh, so autosave can't destroy it.
 - `src/store/useAppStore.ts`: `useReducer` plus autosave. `dispatch(action, by)` adds `meta`.
 - Closed months stay editable: `updatePerson` and `updateCard` with a closed `periodId` edit that month's `snapshot`, never the live values. Names are only editable on the live person.
-- `src/fileSave.ts`: Save/Open through the File System Access API, falling back to download/`<input type=file>`. The file handle is kept in IndexedDB so Save writes back to the same file after a reload. An opened file only becomes the save target once it passes validation.
+- `src/fileSave.ts`: the file side of Back up/Restore, through the File System Access API, falling back to download/`<input type=file>`. The file handle is kept in IndexedDB so Back up writes to the same file after a reload. A restored file only becomes the backup target once it passes validation.
 - `src/saveFile.ts`: `parseSaveFile` turns JSON or Zod failures into friendly messages. `replaceState` loads a file and keeps its own `lastUpdated`.
 - "Who's using Our Money" is a per-browser preference (`our-money:me` in localStorage, not in the save file). It sets `lastUpdated.by`; if nobody is chosen, edits on a person's card are credited to that person.
+- `src/lastBackup.ts`: "Last backed up" is also per-browser (`our-money:last-backup`, an ISO timestamp). It's set only after a successful backup (saved or downloaded), never by Restore; an unreadable value counts as "Never". `isBackupDue` in `calculations.ts` drives the 14-day reminder.
+- `src/persistStorage.ts`: `requestPersistentStorage()`, called from `main.tsx` on startup. It skips the request if storage is already persistent and never throws.
 - TypeScript is strict about unused locals/parameters and uses `verbatimModuleSyntax`, so type-only imports need `import type`.

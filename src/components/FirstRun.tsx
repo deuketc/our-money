@@ -1,14 +1,14 @@
-import { FolderOpen, PiggyBank } from 'lucide-react'
+import { PiggyBank, Upload } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NameForm } from './NameForm'
 
 interface Props {
   onAddPerson: (name: string) => void
-  onOpen: () => void
+  onRestore: () => void
   notice?: ReactNode
 }
 
-export function FirstRun({ onAddPerson, onOpen, notice }: Props) {
+export function FirstRun({ onAddPerson, onRestore, notice }: Props) {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4">
@@ -28,10 +28,10 @@ export function FirstRun({ onAddPerson, onOpen, notice }: Props) {
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-xl px-3 py-2 font-semibold text-violet-600 transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300"
-              onClick={onOpen}
+              onClick={onRestore}
             >
-              <FolderOpen className="size-4" aria-hidden />
-              Already have a save file? Open it
+              <Upload className="size-4" aria-hidden />
+              Have a backup? Restore it
             </button>
           </div>
         </div>

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   calculatePeriod,
   cardOwing,
+  daysSince,
+  isBackupDue,
   isUpdateStale,
   personalTotal,
   shareFractions,
@@ -167,5 +169,28 @@ describe('isUpdateStale', () => {
 
   it('is stale after more than 7 days', () => {
     expect(isUpdateStale(at, new Date('2026-11-24T09:31:00+13:00'))).toBe(true)
+  })
+})
+
+describe('isBackupDue', () => {
+  const at = '2026-11-01T09:30:00+13:00'
+
+  it('is not due within 14 days', () => {
+    expect(isBackupDue(at, new Date('2026-11-15T09:30:00+13:00'))).toBe(false)
+  })
+
+  it('is due after more than 14 days', () => {
+    expect(isBackupDue(at, new Date('2026-11-15T09:31:00+13:00'))).toBe(true)
+  })
+
+  it('is never due when there has been no backup (the header says "Never")', () => {
+    expect(isBackupDue(null, new Date('2030-01-01'))).toBe(false)
+  })
+})
+
+describe('daysSince', () => {
+  it('counts whole days', () => {
+    expect(daysSince('2026-11-01T09:30:00+13:00', new Date('2026-11-16T09:29:00+13:00'))).toBe(14)
+    expect(daysSince('2026-11-01T09:30:00+13:00', new Date('2026-11-16T09:30:00+13:00'))).toBe(15)
   })
 })

@@ -1,20 +1,21 @@
-import { FolderOpen, History } from 'lucide-react'
+import { History, TriangleAlert, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { calculatePeriod, shareFractions } from './calculations'
 import { AddPersonCard } from './components/AddPersonCard'
 import { CloseMonth } from './components/CloseMonth'
 import { FirstRun } from './components/FirstRun'
-import { Header, type SaveStatus } from './components/Header'
+import { Header, type BackupStatus } from './components/Header'
 import { HeroBalance } from './components/HeroBalance'
 import { Modal } from './components/Modal'
 import { Notice, type NoticeData } from './components/Notice'
 import { NotesPanel } from './components/NotesPanel'
 import { PersonCard } from './components/PersonCard'
-import { ghostButtonClass, primaryButtonClass } from './components/styles'
+import { dangerButtonClass, ghostButtonClass } from './components/styles'
 import { VisaCard } from './components/VisaCard'
 import { VisaSplit } from './components/VisaSplit'
 import { FileTooBigError, openFile, saveToFile } from './fileSave'
-import { formatPeriodLabel, todayIso } from './format'
+import { formatDate, formatPeriodLabel, todayIso } from './format'
+import { useLastBackup } from './lastBackup'
 import { parseSaveFile } from './saveFile'
 import type { AppData, Period } from './schema'
 import type { Action } from './store/reducer'
@@ -29,7 +30,7 @@ function defaultDateFor(period: Period): string {
   return today >= period.start && today <= period.end ? today : period.start
 }
 
-interface PendingOpen {
+interface PendingRestore {
   data: AppData
   fileName: string
   remember: () => Promise<void>
@@ -38,10 +39,11 @@ interface PendingOpen {
 export default function App() {
   const { state, dispatch } = useAppStore()
   const [selectedId, setSelectedId] = useState(state.currentPeriodId)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>('idle')
   const [notice, setNotice] = useState<NoticeData | null>(null)
-  const [pendingOpen, setPendingOpen] = useState<PendingOpen | null>(null)
+  const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null)
   const [storedMeId, setMeId] = usePreference('our-money:me')
+  const [lastBackupAt, setLastBackupAt] = useLastBackup()
 
   // Who's making changes on this device. With one person it's always them.
   const meId = state.people.some((p) => p.id === storedMeId) ? storedMeId : null
@@ -57,10 +59,10 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (saveStatus !== 'saved') return
-    const timer = setTimeout(() => setSaveStatus('idle'), 2000)
+    if (backupStatus !== 'done') return
+    const timer = setTimeout(() => setBackupStatus('idle'), 2000)
     return () => clearTimeout(timer)
-  }, [saveStatus])
+  }, [backupStatus])
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -75,16 +77,16 @@ export default function App() {
     if (firstPerson) setMeId(id)
   }
 
-  const loadFile = async ({ data, fileName, remember }: PendingOpen) => {
-    setPendingOpen(null)
+  const restore = async ({ data, fileName, remember }: PendingRestore) => {
+    setPendingRestore(null)
     dispatch({ type: 'replaceState', data })
     setSelectedId(data.currentPeriodId)
     setLastCurrentId(data.currentPeriodId)
     await remember()
-    setNotice({ kind: 'success', message: `Opened ${fileName}.` })
+    setNotice({ kind: 'success', message: `Restored from ${fileName}.` })
   }
 
-  const handleOpen = async () => {
+  const handleRestore = async () => {
     setNotice(null)
     try {
       const opened = await openFile()
@@ -95,60 +97,75 @@ export default function App() {
         return
       }
       const pending = { data: parsed.data, fileName: opened.fileName, remember: opened.remember }
-      // Nothing on screen to lose yet: load straight away.
-      if (state.people.length === 0) await loadFile(pending)
-      else setPendingOpen(pending)
+      // Nothing here to overwrite yet: restore straight away.
+      if (state.people.length === 0) await restore(pending)
+      else setPendingRestore(pending)
     } catch (error) {
       setNotice({
         kind: 'error',
         message:
           error instanceof FileTooBigError
-            ? "That file is too big to be an Our Money save file. Nothing was loaded."
-            : "Couldn't open that file. Nothing was loaded.",
+            ? 'That file is too big to be an Our Money backup. Nothing was changed.'
+            : "Couldn't restore from that file. Nothing was changed.",
       })
     }
   }
 
-  const handleSave = async () => {
-    setSaveStatus('saving')
+  const handleBackUp = async () => {
+    setBackupStatus('working')
     setNotice(null)
     try {
       const outcome = await saveToFile(state)
-      if (outcome.status === 'cancelled') return setSaveStatus('idle')
-      setSaveStatus('saved')
+      if (outcome.status === 'cancelled') return setBackupStatus('idle')
+      setBackupStatus('done')
+      setLastBackupAt(new Date().toISOString())
       setNotice({
         kind: 'success',
         message:
           outcome.status === 'saved'
-            ? `Saved to ${outcome.fileName}.`
-            : `Downloaded ${outcome.fileName}. This browser can't save back to the same file, so keep the newest copy.`,
+            ? `Backed up to ${outcome.fileName}.`
+            : `Downloaded a backup, ${outcome.fileName}. This browser can't save back to the same file, so keep the newest copy.`,
       })
     } catch {
-      setSaveStatus('idle')
-      setNotice({ kind: 'error', message: "Couldn't save the file. Your changes are still kept in this browser." })
+      setBackupStatus('idle')
+      setNotice({ kind: 'error', message: "Couldn't back up. Your data is still kept in this browser." })
     }
   }
 
+  // Changes made since the last backup would be lost by a restore.
+  const unbackedChanges =
+    state.lastUpdated !== null && (lastBackupAt === null || lastBackupAt < state.lastUpdated.at)
+
   const noticeBanner = notice && <Notice notice={notice} onDismiss={() => setNotice(null)} />
-  const openDialog = pendingOpen && (
-    <Modal title={`Open ${pendingOpen.fileName}?`} onCancel={() => setPendingOpen(null)}>
-      <p className="text-slate-600">
-        This replaces everything on screen with what’s in the file. Save first if you want to keep your current
-        numbers.
+  const restoreDialog = pendingRestore && (
+    <Modal title={`Restore from ${pendingRestore.fileName}?`} onCancel={() => setPendingRestore(null)}>
+      <p className="flex gap-2 rounded-2xl bg-rose-50 p-3 font-semibold text-rose-800">
+        <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
+        This will overwrite everything in Our Money right now with what’s in the backup. It can’t be undone.
+      </p>
+      <p className="mt-3 text-slate-600">
+        People, pay, the Visa, purchases, notes and every past month are replaced.{' '}
+        {unbackedChanges
+          ? lastBackupAt
+            ? `You’ve made changes since your last backup on ${formatDate(lastBackupAt)}. Back up first if you want to keep them.`
+            : 'You haven’t backed up yet. Back up first if you want to keep your current numbers.'
+          : 'Everything here is already in your last backup.'}
       </p>
       <div className="mt-6 flex justify-end gap-2">
-        <button type="button" className={ghostButtonClass} onClick={() => setPendingOpen(null)} data-autofocus>
+        <button type="button" className={ghostButtonClass} onClick={() => setPendingRestore(null)} data-autofocus>
           Cancel
         </button>
-        <button type="button" className={primaryButtonClass} onClick={() => loadFile(pendingOpen)}>
-          <FolderOpen className="size-4" aria-hidden />
-          Open file
+        <button type="button" className={dangerButtonClass} onClick={() => restore(pendingRestore)}>
+          <Upload className="size-4" aria-hidden />
+          Overwrite and restore
         </button>
       </div>
     </Modal>
   )
 
-  if (state.people.length === 0) return <FirstRun onAddPerson={addPerson} onOpen={handleOpen} notice={noticeBanner} />
+  if (state.people.length === 0) {
+    return <FirstRun onAddPerson={addPerson} onRestore={handleRestore} notice={noticeBanner} />
+  }
 
   const period =
     state.periods.find((p) => p.id === selectedId) ??
@@ -168,9 +185,10 @@ export default function App() {
         onSelectPeriod={setSelectedId}
         meId={meId}
         onChangeMe={setMeId}
-        onOpen={handleOpen}
-        onSave={handleSave}
-        saveStatus={saveStatus}
+        onRestore={handleRestore}
+        onBackUp={handleBackUp}
+        backupStatus={backupStatus}
+        lastBackupAt={lastBackupAt}
       />
 
       <main className="mx-auto max-w-5xl space-y-6 px-4 pt-6">
@@ -246,7 +264,7 @@ export default function App() {
           />
         )}
       </main>
-      {openDialog}
+      {restoreDialog}
     </div>
   )
 }

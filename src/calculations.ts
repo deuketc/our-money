@@ -142,11 +142,26 @@ export function calculatePeriod(data: AppData, period: Period): PeriodResult {
   }
 }
 
-// ---------- Last updated ----------
+// ---------- Last updated and last backed up ----------
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Whole days between an ISO timestamp and now. */
+export function daysSince(iso: string, now: Date): number {
+  return Math.floor((now.getTime() - new Date(iso).getTime()) / DAY_MS)
+}
 
 /** True when it's been more than `days` since the last update. */
 export function isUpdateStale(lastUpdatedAt: string, now: Date, days = 7): boolean {
   return now.getTime() - new Date(lastUpdatedAt).getTime() > days * DAY_MS
+}
+
+export const BACKUP_REMINDER_DAYS = 14
+
+/**
+ * True when the last backup was more than 14 days ago. False when there's
+ * never been one: the header shows "Never" for that instead.
+ */
+export function isBackupDue(lastBackupAt: string | null, now: Date): boolean {
+  return lastBackupAt !== null && isUpdateStale(lastBackupAt, now, BACKUP_REMINDER_DAYS)
 }

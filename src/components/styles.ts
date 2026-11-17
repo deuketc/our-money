@@ -13,6 +13,12 @@ export const primaryButtonClass =
   'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 ' +
   'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100'
 
+/** For actions that overwrite or destroy data. */
+export const dangerButtonClass =
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white ' +
+  'shadow-md shadow-rose-600/25 transition hover:bg-rose-700 active:scale-95 ' +
+  'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-300'
+
 export const ghostButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 font-semibold text-slate-600 ' +
   'transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300'
