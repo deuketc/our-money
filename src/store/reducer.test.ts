@@ -14,10 +14,7 @@ const meta: Meta = { at: '2026-12-05T08:00:00.000Z', by: 'p2' }
 const run = (state: AppData, ...actions: Action[]) =>
   actions.reduce((s, action) => reducer(s, { ...action, meta }), state)
 
-const close = (savedToSavings: number | null = null): Action => ({
-  type: 'closeMonth',
-  savedToSavings,
-})
+const close = (): Action => ({ type: 'closeMonth' })
 
 const periodById = (state: AppData, id: string) => {
   const period = state.periods.find((p) => p.id === id)
@@ -27,7 +24,7 @@ const periodById = (state: AppData, id: string) => {
 
 describe('closeMonth', () => {
   it('marks November closed and opens December', () => {
-    const state = run(cloneExample(), close(1000))
+    const state = run(cloneExample(), close())
 
     expect(periodById(state, '2026-11').status).toBe('closed')
     expect(state.currentPeriodId).toBe('2026-12')
@@ -67,12 +64,11 @@ describe('closeMonth', () => {
     expect(before.summary.balance).toBeCloseTo(3900, 2)
   })
 
-  it('carries over people, card and savings goal', () => {
+  it('carries over people and card', () => {
     const before = cloneExample()
     const state = run(before, close())
     expect(state.people).toEqual(before.people)
     expect(state.card).toEqual(before.card)
-    expect(state.savings.goalName).toBe('Holiday')
   })
 
   it('clears purchases and starts available at the card limit', () => {
@@ -97,18 +93,6 @@ describe('closeMonth', () => {
     ])
   })
 
-  it('records the amount saved and adds it to savings', () => {
-    const state = run(cloneExample(), close(3900))
-    expect(periodById(state, '2026-11').savedToSavings).toBe(3900)
-    expect(state.savings.current).toBe(3500 + 3900)
-  })
-
-  it('leaves savings alone when the user skips saving', () => {
-    const state = run(cloneExample(), close(null))
-    expect(periodById(state, '2026-11').savedToSavings).toBeNull()
-    expect(state.savings.current).toBe(3500)
-  })
-
   it('stamps lastUpdated', () => {
     expect(run(cloneExample(), close()).lastUpdated).toEqual({
       at: meta.at,
@@ -117,7 +101,7 @@ describe('closeMonth', () => {
   })
 
   it('produces a valid save file', () => {
-    const state = run(cloneExample(), close(800), close(500))
+    const state = run(cloneExample(), close(), close())
     expect(appDataSchema.safeParse(state).success).toBe(true)
     expect(state.currentPeriodId).toBe('2027-01')
   })
@@ -132,7 +116,7 @@ describe('closeMonth', () => {
 
   it('does not change the input state', () => {
     const before = cloneExample()
-    run(before, close(1000))
+    run(before, close())
     expect(before).toEqual(cloneExample())
   })
 })
@@ -185,7 +169,7 @@ describe('other actions', () => {
   })
 })
 
-describe('notes and savings actions', () => {
+describe('notes actions', () => {
   it('toggles a note pin', () => {
     const state = run(cloneExample(), {
       type: 'updateNote',
@@ -201,11 +185,6 @@ describe('notes and savings actions', () => {
   it('removes a note', () => {
     const state = run(cloneExample(), { type: 'removeNote', periodId: '2026-11', noteId: 'n1' })
     expect(periodById(state, '2026-11').notes).toEqual([])
-  })
-
-  it('updates savings', () => {
-    const state = run(cloneExample(), { type: 'updateSavings', changes: { goalAmount: 12000, current: 4000 } })
-    expect(state.savings).toEqual({ goalName: 'Holiday', goalAmount: 12000, current: 4000, interestRate: 0.04 })
   })
 })
 

@@ -16,7 +16,6 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 - **Close month**: one button with a confirmation step. It saves the period to history and starts a fresh one.
 - **Carries over**: people, salaries and pay frequency, housing, card limit and pinned notes.
 - **Cleared**: the personal purchases list and unpinned notes.
-- **On close**: the app offers to add the leftover balance to savings, and the amount can be edited.
 
 ## Person panel (one per person)
 
@@ -63,14 +62,6 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 - Closing a period saves it to history and starts a fresh one.
 - Decided: periods are monthly, following the Visa statement dates. Pay frequency is handled by the salary conversion, not by the cycle.
 
-## Savings goal (shared)
-
-- Goals are shared, to keep it about "us" and avoid awkward comparisons.
-- **Goal amount** and **current savings** are entered manually.
-- When a period closes, the app offers to add the leftover balance to savings, and you can edit the amount.
-- **Projection**: based on the average saved over recent periods, with an optional interest rate. For example, $2,000 a month is $24,000 a year before interest.
-- Shows a message like "At this rate you'll hit your goal by March 2028."
-
 ## Data model
 
 The file stores only what people type in. Balances and amounts owed are calculated every time and never saved.
@@ -95,12 +86,6 @@ The file stores only what people type in. Balances and amounts owed are calculat
     }
   ],
   "card": { "limit": 8000, "splitDefault": 0.5 },
-  "savings": {
-    "goalName": "Holiday",
-    "goalAmount": 10000,
-    "current": 3500,
-    "interestRate": 0.04
-  },
   "currentPeriodId": "2026-11",
   "periods": [
     {
@@ -126,7 +111,6 @@ The file stores only what people type in. Balances and amounts owed are calculat
           "pinned": true
         }
       ],
-      "savedToSavings": 800,
       "snapshot": {
         "people": [
           {
@@ -170,7 +154,6 @@ The file stores only what people type in. Balances and amounts owed are calculat
           "pinned": true
         }
       ],
-      "savedToSavings": null,
       "snapshot": null
     }
   ],
@@ -180,10 +163,11 @@ The file stores only what people type in. Balances and amounts owed are calculat
 
 In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fortnightly salary, so October still calculates correctly after his pay rise to $2,000. November is open and uses the live values from the top level.
 
-- **Top level** (carries over): people, card limit and default split, savings.
+- **Top level** (carries over): people, card limit and default split.
 - **periods**: an array with one object per month, each holding that month's available amount, purchases and notes.
 - **snapshot**: filled in when a month closes, so it keeps the salaries and housing as they were then. Editing a salary later doesn't change past months.
 - **version**: lets the file format be upgraded later.
+- **Retired fields**: files saved before the savings goal was removed may still contain `savings` (top level) and `savedToSavings` (on each period). They load fine; those fields are dropped on load and not saved again.
 
 ## Tech approach
 
@@ -218,13 +202,13 @@ In this example, October is closed. Its snapshot keeps Charlie's old $1,900 fort
 
 - Bright and friendly style.
 - A big hero balance at the top that glows green or red.
-- Clean cards for each person, the credit card, savings and notes.
-- Icons from Lucide or Phosphor, like a house for Housing and a piggy bank for Savings.
+- Clean cards for each person, the credit card and notes.
+- Icons from Lucide or Phosphor, like a house for Housing.
 - A chunky vector credit card showing the limit and available amounts on its face, with owing underneath and a usage bar that goes from green to orange to red.
 
 &#91;embedded content: Main screen wireframe · example numbers\]
 
-From top to bottom: header, hero balance, a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then savings and notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
+From top to bottom: header, hero balance, a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
 
 ## Later list (avoiding scope creep)
 
@@ -248,14 +232,14 @@ npx vitest run -t "renders the app"  # tests matching a name
 
 - Tailwind CSS v4 runs through the `@tailwindcss/vite` plugin. There is no `tailwind.config.js`; the CSS entry is `src/index.css` (`@import 'tailwindcss'`), and theme customisation goes there with `@theme`.
 - Vitest config is in `vite.config.ts` (`test` block): jsdom environment, tests are `src/**/*.test.{ts,tsx}`, setup in `src/test/setup.ts` (jest-dom matchers, Testing Library cleanup). Import `describe`/`it`/`expect` from `vitest`; globals are off.
-- Pure calculation functions (salary conversion, card split, balances, projections) don't need the DOM, so test them directly without Testing Library.
+- Pure calculation functions (salary conversion, card split, balances) don't need the DOM, so test them directly without Testing Library.
 - Vitest workers run with `--no-experimental-webstorage` (set in `vite.config.ts`); without it, Node 22+'s built-in `localStorage` replaces jsdom's and storage tests fail.
 - Test fixture: `src/test/exampleData.ts` is the example data model above. Use `cloneExample()` when a test changes it.
 
 ### Code layout
 
-- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, closed periods have snapshots, purchases point to real people). Change the data shape here first.
-- `src/calculations.ts`: pure derived values (monthly salary, Visa split, balances, savings projection). Nothing derived is ever stored.
+- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, closed periods have snapshots, purchases point to real people). Change the data shape here first. `dropRetiredFields` strips fields from removed features (currently the savings goal's `savings` and `savedToSavings`) before validation, so old files still load; add to it when retiring a field rather than loosening the strict objects.
+- `src/calculations.ts`: pure derived values (monthly salary, Visa split, balances, stale-update check). Nothing derived is ever stored.
 - `src/store/reducer.ts`: pure reducer. Ids, timestamps and `by` arrive on the action (`meta`), so it never reads the clock. `closeMonth` builds the snapshot and opens the next period (starts the day after the old one ends; `available` resets to the card limit).
 - `src/store/storage.ts`: local storage load/save. Data that fails validation is copied to `our-money:unreadable-backup` before the app starts fresh, so autosave can't destroy it.
 - `src/store/useAppStore.ts`: `useReducer` plus autosave. `dispatch(action, by)` adds `meta`.

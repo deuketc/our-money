@@ -130,7 +130,7 @@ describe('with the example data', () => {
   })
 })
 
-describe('Visa, savings, notes and closing the month', () => {
+describe('Visa, notes and closing the month', () => {
   beforeEach(() => {
     saveState(cloneExample())
   })
@@ -170,22 +170,9 @@ describe('Visa, savings, notes and closing the month', () => {
     expect(list.getAllByRole('listitem')[1]).toHaveTextContent('Layla50% of shared $1,350$1,350')
   })
 
-  it('shows savings progress and the projection', () => {
+  it('has no savings goal', () => {
     render(<App />)
-    const savings = section('Savings goal')
-    expect(savings.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '35')
-    expect(savings.getByText('At this rate you’ll hit your goal by July 2027.')).toBeInTheDocument()
-    expect(savings.getByLabelText('Interest a year')).toHaveValue('4')
-  })
-
-  it('edits savings', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    const saved = section('Savings goal').getByLabelText('Saved so far')
-    await user.clear(saved)
-    await user.type(saved, '10000')
-    expect(section('Savings goal').getByText(/You did it! Holiday is fully saved/)).toBeInTheDocument()
-    expect(stored().savings.current).toBe(10000)
+    expect(screen.queryByRole('region', { name: 'Savings goal' })).not.toBeInTheDocument()
   })
 
   it('adds a note and pins it', async () => {
@@ -202,39 +189,25 @@ describe('Visa, savings, notes and closing the month', () => {
     expect(stored().periods[1].notes[1]).toMatchObject({ text: 'Dentist on the 20th', pinned: true })
   })
 
-  it('closes the month after confirming and saves the leftover', async () => {
+  it('closes the month after confirming', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: 'Close month' }))
 
     const dialog = within(screen.getByRole('dialog', { name: 'Close November 2026?' }))
-    expect(dialog.getByRole('checkbox', { name: /Add to Holiday/ })).toBeChecked()
-    const amount = dialog.getByLabelText('Amount to save')
-    expect(amount).toHaveValue('3900')
-    await user.clear(amount)
-    await user.type(amount, '3000')
+    expect(dialog.getByText('This month finishes with $3,900 left over.')).toBeInTheDocument()
+    expect(dialog.queryByRole('checkbox')).not.toBeInTheDocument()
     await user.click(dialog.getByRole('button', { name: 'Close month' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Month')).toHaveValue('2026-12')
     expect(hero()).toHaveTextContent('December 2026')
-    expect(stored().periods[1]).toMatchObject({ status: 'closed', savedToSavings: 3000 })
-    expect(stored().savings.current).toBe(6500)
+    expect(stored().periods[1].status).toBe('closed')
+    expect(stored().periods[1]).not.toHaveProperty('savedToSavings')
+    expect(stored()).not.toHaveProperty('savings')
     // Pinned note carried over; purchases cleared.
     expect(section('Notes').getByText('Car rego due in March')).toBeInTheDocument()
     expect(within(card('Charlie')).queryByRole('list')).not.toBeInTheDocument()
-  })
-
-  it('closes without saving when unticked', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(screen.getByRole('button', { name: 'Close month' }))
-    const dialog = within(screen.getByRole('dialog'))
-    await user.click(dialog.getByRole('checkbox'))
-    await user.click(dialog.getByRole('button', { name: 'Close month' }))
-
-    expect(stored().periods[1].savedToSavings).toBeNull()
-    expect(stored().savings.current).toBe(3500)
   })
 
   it('does nothing when cancelled', async () => {

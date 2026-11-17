@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { appDataSchema } from './schema'
-import { cloneExample } from './test/exampleData'
+import { cloneExample, oldSaveFile } from './test/exampleData'
+
+describe('older save files', () => {
+  it('loads a file with the retired savings fields and drops them', () => {
+    const result = appDataSchema.safeParse(oldSaveFile())
+    expect(result.success).toBe(true)
+    expect(result.data).toEqual(cloneExample())
+  })
+
+  it('still rejects other unknown keys in an old file', () => {
+    const data = oldSaveFile()
+    data.extra = true
+    expect(appDataSchema.safeParse(data).success).toBe(false)
+  })
+})
 
 describe('appDataSchema', () => {
   it('accepts the example file', () => {

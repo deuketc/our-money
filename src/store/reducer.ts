@@ -2,7 +2,7 @@
 // action, so the same action always produces the same state (and tests
 // don't need to mock the clock). useAppStore fills in `meta`.
 
-import type { AppData, Card, Note, Person, Purchase, Savings, Snapshot } from '../schema'
+import type { AppData, Card, Note, Person, Purchase, Snapshot } from '../schema'
 
 export type Action =
   | { type: 'addPerson'; person: Person }
@@ -32,12 +32,7 @@ export type Action =
   | { type: 'addNote'; periodId: string; note: Note }
   | { type: 'updateNote'; periodId: string; noteId: string; changes: Partial<Omit<Note, 'id'>> }
   | { type: 'removeNote'; periodId: string; noteId: string }
-  | { type: 'updateSavings'; changes: Partial<Savings> }
-  | {
-      type: 'closeMonth'
-      /** Leftover to add to savings (editable by the user); null to skip. */
-      savedToSavings: number | null
-    }
+  | { type: 'closeMonth' }
 
 export interface Meta {
   /** ISO timestamp of the change. */
@@ -110,11 +105,8 @@ function apply(state: AppData, action: Exclude<Action, { type: 'replaceState' }>
         notes: period.notes.filter((n) => n.id !== action.noteId),
       }))
 
-    case 'updateSavings':
-      return { ...state, savings: { ...state.savings, ...action.changes } }
-
     case 'closeMonth':
-      return closeMonth(state, action.savedToSavings)
+      return closeMonth(state)
   }
 }
 
@@ -144,14 +136,14 @@ function updatePeriod(
  * Closes the current period and opens the next one.
  * - Snapshot: copies of people and card as they are now, so later edits
  *   don't change this month's numbers.
- * - Carries over: people, card, savings and pinned notes (top-level data
+ * - Carries over: people, card and pinned notes (top-level data
  *   is untouched; pinned notes are copied into the new period).
  * - Cleared: purchases and unpinned notes.
  * - The new period starts the day after this one ends and runs one month.
  *   Its available amount starts at the card limit (nothing owing) until
  *   the next statement is entered.
  */
-function closeMonth(state: AppData, savedToSavings: number | null): AppData {
+function closeMonth(state: AppData): AppData {
   const current = state.periods.find((p) => p.id === state.currentPeriodId)
   if (!current || current.status !== 'open') return state
 
@@ -162,7 +154,6 @@ function closeMonth(state: AppData, savedToSavings: number | null): AppData {
   const closed = {
     ...current,
     status: 'closed' as const,
-    savedToSavings,
     snapshot: structuredClone({ people: state.people, card: state.card }),
   }
 
@@ -174,16 +165,11 @@ function closeMonth(state: AppData, savedToSavings: number | null): AppData {
     available: state.card.limit,
     purchases: [],
     notes: current.notes.filter((n) => n.pinned).map((n) => ({ ...n })),
-    savedToSavings: null,
     snapshot: null,
   }
 
   return {
     ...state,
-    savings: {
-      ...state.savings,
-      current: state.savings.current + (savedToSavings ?? 0),
-    },
     currentPeriodId: nextId,
     periods: [...state.periods.map((p) => (p.id === current.id ? closed : p)), opened],
   }
@@ -234,7 +220,6 @@ export function createInitialState(today: Date): AppData {
     version: 1,
     people: [],
     card: { limit: 0, splitDefault: 0.5 },
-    savings: { goalName: '', goalAmount: 0, current: 0, interestRate: 0 },
     currentPeriodId: start.slice(0, 7),
     periods: [
       {
@@ -245,7 +230,6 @@ export function createInitialState(today: Date): AppData {
         available: 0,
         purchases: [],
         notes: [],
-        savedToSavings: null,
         snapshot: null,
       },
     ],

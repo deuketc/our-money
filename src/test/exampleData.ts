@@ -8,7 +8,6 @@ export const exampleData: AppData = {
     { id: 'p2', name: 'Layla', salary: 2200, payFrequency: 'fortnightly', housing: 1200 },
   ],
   card: { limit: 8000, splitDefault: 0.5 },
-  savings: { goalName: 'Holiday', goalAmount: 10000, current: 3500, interestRate: 0.04 },
   currentPeriodId: '2026-11',
   periods: [
     {
@@ -21,7 +20,6 @@ export const exampleData: AppData = {
         { id: 'x0', personId: 'p2', description: 'New shoes', amount: 140, date: '2026-10-18' },
       ],
       notes: [{ id: 'n0', text: 'Car rego due in March', date: '2026-10-20', pinned: true }],
-      savedToSavings: 800,
       snapshot: {
         people: [
           { id: 'p1', name: 'Charlie', salary: 1900, payFrequency: 'fortnightly', housing: 1200 },
@@ -40,7 +38,6 @@ export const exampleData: AppData = {
         { id: 'x1', personId: 'p1', description: 'PlayStation game', amount: 100, date: '2026-11-12' },
       ],
       notes: [{ id: 'n1', text: 'Car rego due in March', date: '2026-11-10', pinned: true }],
-      savedToSavings: null,
       snapshot: null,
     },
   ],
@@ -49,4 +46,21 @@ export const exampleData: AppData = {
 
 export function cloneExample(): AppData {
   return structuredClone(exampleData)
+}
+
+/**
+ * The example as an older version of the app saved it, with the fields
+ * from the retired savings goal (`savings` and each period's
+ * `savedToSavings`). These should load fine and be dropped.
+ */
+export function oldSaveFile(): Record<string, unknown> {
+  const data = cloneExample()
+  return {
+    ...data,
+    savings: { goalName: 'Holiday', goalAmount: 10000, current: 3500, interestRate: 0.04 },
+    periods: data.periods.map((period) => ({
+      ...period,
+      savedToSavings: period.status === 'closed' ? 800 : null,
+    })),
+  }
 }

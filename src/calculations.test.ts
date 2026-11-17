@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
-  addMonths,
-  averageSaved,
   calculatePeriod,
   cardOwing,
-  goalDate,
   isUpdateStale,
-  monthsToGoal,
   personalTotal,
-  projectSavings,
   shareFractions,
   sharedSpend,
   toMonthly,
 } from './calculations'
-import type { AppData, Period, Person } from './schema'
+import type { AppData, Person } from './schema'
 import { exampleData } from './test/exampleData'
 
 const example: AppData = exampleData
@@ -156,63 +151,6 @@ describe('calculatePeriod – single person', () => {
     const [charlie] = calculatePeriod(solo, november).people
     expect(charlie.sharedVisaOwing).toBe(2700)
     expect(charlie.totalVisaOwing).toBe(2800)
-  })
-})
-
-describe('savings', () => {
-  it('averages saved amounts over recent closed periods', () => {
-    expect(averageSaved(example.periods)).toBe(800)
-  })
-
-  it('only uses the most recent periods', () => {
-    const closed = (id: string, saved: number): Period => ({
-      ...october,
-      id,
-      savedToSavings: saved,
-    })
-    const periods = [
-      closed('2026-07', 100),
-      closed('2026-08', 1000),
-      closed('2026-09', 2000),
-      closed('2026-10', 3000),
-    ]
-    expect(averageSaved(periods, 3)).toBe(2000)
-  })
-
-  it('returns null with no saving history', () => {
-    expect(averageSaved([november])).toBeNull()
-  })
-
-  it('$2,000 a month is $24,000 a year before interest', () => {
-    expect(projectSavings(0, 2000, 12)).toBe(24000)
-  })
-
-  it('adds monthly compounding interest', () => {
-    expect(projectSavings(0, 2000, 12, 0.04)).toBeCloseTo(24444.93, 2)
-  })
-
-  it('months to the $10,000 Holiday goal from $3,500 at $800 a month', () => {
-    expect(monthsToGoal(3500, 10000, 800)).toBe(9) // 3500 + 8 × 800 = 9900, not enough
-    expect(monthsToGoal(3500, 10000, 800, 0.04)).toBe(8) // interest tips it over
-  })
-
-  it('returns 0 when the goal is already reached', () => {
-    expect(monthsToGoal(10000, 10000, 800)).toBe(0)
-  })
-
-  it('returns null when the goal will never be reached', () => {
-    expect(monthsToGoal(3500, 10000, 0)).toBeNull()
-    expect(monthsToGoal(3500, 10000, -100)).toBeNull()
-  })
-
-  it('adds months across year boundaries', () => {
-    expect(addMonths('2026-11', 8)).toBe('2027-07')
-    expect(addMonths('2026-11', 2)).toBe('2027-01')
-    expect(addMonths('2026-11', 0)).toBe('2026-11')
-  })
-
-  it('projects the goal month from the current period', () => {
-    expect(goalDate(example, example.currentPeriodId)).toBe('2027-07')
   })
 })
 

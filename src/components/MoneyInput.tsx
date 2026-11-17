@@ -12,18 +12,15 @@ interface Props {
   /** 'dark' for inputs on a coloured background, like the Visa card face. */
   tone?: 'light' | 'dark'
   prefix?: string
-  suffix?: string
-  /** Values above this are treated as invalid. */
-  max?: number
 }
 
 /** Parses "1,200", "$1200.50" or "" (→ 0). Returns null if invalid. */
-function parseNumber(text: string, max: number): number | null {
-  const cleaned = text.replace(/[$,%\s]/g, '')
+function parseNumber(text: string): number | null {
+  const cleaned = text.replace(/[$,\s]/g, '')
   if (cleaned === '') return 0
   if (!/^\d*\.?\d*$/.test(cleaned)) return null
   const value = Number(cleaned)
-  return Number.isFinite(value) && value <= max ? value : null
+  return Number.isFinite(value) ? value : null
 }
 
 const toText = (value: number) => (value === 0 ? '' : String(value))
@@ -41,8 +38,6 @@ export function MoneyInput({
   className,
   tone = 'light',
   prefix = '$',
-  suffix,
-  max = Number.MAX_SAFE_INTEGER,
 }: Props) {
   const id = useId()
   const [text, setText] = useState(() => toText(value))
@@ -51,10 +46,10 @@ export function MoneyInput({
   // The value changed from outside (e.g. switching month): show it.
   if (value !== lastValue) {
     setLastValue(value)
-    if (parseNumber(text, max) !== value) setText(toText(value))
+    if (parseNumber(text) !== value) setText(toText(value))
   }
 
-  const invalid = parseNumber(text, max) === null
+  const invalid = parseNumber(text) === null
   const dark = tone === 'dark'
   const affix = dark ? 'text-white/60' : 'text-slate-400'
 
@@ -77,23 +72,20 @@ export function MoneyInput({
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          className={`${dark ? inputOnDarkClass : inputClass} tabular-nums ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-8' : ''}`}
+          className={`${dark ? inputOnDarkClass : inputClass} tabular-nums ${prefix ? 'pl-7' : ''}`}
           value={text}
           placeholder={placeholder}
           aria-invalid={invalid || undefined}
           maxLength={15}
           onChange={(e) => {
             setText(e.target.value)
-            const parsed = parseNumber(e.target.value, max)
+            const parsed = parseNumber(e.target.value)
             if (parsed !== null) {
               setLastValue(parsed)
               onChange(parsed)
             }
           }}
         />
-        {suffix && (
-          <span className={`pointer-events-none absolute inset-y-0 right-3 flex items-center ${affix}`}>{suffix}</span>
-        )}
       </div>
     </div>
   )

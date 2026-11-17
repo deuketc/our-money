@@ -10,7 +10,6 @@ import { Modal } from './components/Modal'
 import { Notice, type NoticeData } from './components/Notice'
 import { NotesPanel } from './components/NotesPanel'
 import { PersonCard } from './components/PersonCard'
-import { SavingsCard } from './components/SavingsCard'
 import { ghostButtonClass, primaryButtonClass } from './components/styles'
 import { VisaCard } from './components/VisaCard'
 import { VisaSplit } from './components/VisaSplit'
@@ -230,24 +229,20 @@ export default function App() {
           <VisaSplit result={result} fractions={fractions} />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <SavingsCard data={state} onUpdate={(changes) => act({ type: 'updateSavings', changes })} />
-          <NotesPanel
-            key={period.id}
-            notes={period.notes}
-            defaultDate={defaultDateFor(period)}
-            onAdd={(note) => act({ type: 'addNote', periodId: period.id, note: { ...note, id: newId() } })}
-            onTogglePin={(noteId, pinned) => act({ type: 'updateNote', periodId: period.id, noteId, changes: { pinned } })}
-            onRemove={(noteId) => act({ type: 'removeNote', periodId: period.id, noteId })}
-          />
-        </div>
+        <NotesPanel
+          key={period.id}
+          notes={period.notes}
+          defaultDate={defaultDateFor(period)}
+          onAdd={(note) => act({ type: 'addNote', periodId: period.id, note: { ...note, id: newId() } })}
+          onTogglePin={(noteId, pinned) => act({ type: 'updateNote', periodId: period.id, noteId, changes: { pinned } })}
+          onRemove={(noteId) => act({ type: 'removeNote', periodId: period.id, noteId })}
+        />
 
         {!isClosed && (
           <CloseMonth
             periodId={period.id}
             leftover={result.summary.balance}
-            goalName={state.savings.goalName}
-            onConfirm={(savedToSavings) => act({ type: 'closeMonth', savedToSavings })}
+            onConfirm={() => act({ type: 'closeMonth' })}
           />
         )}
       </main>

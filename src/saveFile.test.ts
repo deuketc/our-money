@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { parseSaveFile } from './saveFile'
-import { cloneExample } from './test/exampleData'
+import { cloneExample, oldSaveFile } from './test/exampleData'
 
 describe('parseSaveFile', () => {
   it('accepts the example file', () => {
     expect(parseSaveFile(JSON.stringify(cloneExample()))).toEqual({ ok: true, data: cloneExample() })
+  })
+
+  it('accepts a file from before the savings goal was removed', () => {
+    expect(parseSaveFile(JSON.stringify(oldSaveFile()))).toEqual({ ok: true, data: cloneExample() })
   })
 
   it('explains non-JSON files', () => {
@@ -23,7 +27,6 @@ describe('parseSaveFile', () => {
     const data = cloneExample() as unknown as Record<string, unknown>
     delete data.people
     delete data.card
-    delete data.savings
     delete data.periods
     const result = parseSaveFile(JSON.stringify(data))
     expect(result.ok).toBe(false)
