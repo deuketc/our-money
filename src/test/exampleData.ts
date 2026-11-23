@@ -2,10 +2,20 @@ import type { AppData } from '../schema'
 
 /** The example data model from CLAUDE.md. Clone before mutating. */
 export const exampleData: AppData = {
-  version: 2,
+  version: 3,
   people: [
-    { id: 'p1', name: 'Charlie', salary: 2000, payFrequency: 'fortnightly', housing: 1200 },
-    { id: 'p2', name: 'Layla', salary: 2200, payFrequency: 'fortnightly', housing: 1200 },
+    {
+      id: 'p1',
+      name: 'Charlie',
+      incomes: [{ id: 'i1', name: 'Salary', amount: 2000, frequency: 'fortnightly' }],
+      expenses: [{ id: 'e1', name: 'Housing', amount: 1200, frequency: 'monthly' }],
+    },
+    {
+      id: 'p2',
+      name: 'Layla',
+      incomes: [{ id: 'i2', name: 'Salary', amount: 2200, frequency: 'fortnightly' }],
+      expenses: [{ id: 'e2', name: 'Housing', amount: 1200, frequency: 'monthly' }],
+    },
   ],
   card: { limit: 8000, splitDefault: 0.5 },
   currentPeriodId: 'pd2',
@@ -23,8 +33,19 @@ export const exampleData: AppData = {
       notes: [{ id: 'n0', text: 'Car rego due in March', date: '2026-10-20', pinned: true }],
       snapshot: {
         people: [
-          { id: 'p1', name: 'Charlie', salary: 1900, payFrequency: 'fortnightly', housing: 1200 },
-          { id: 'p2', name: 'Layla', salary: 2200, payFrequency: 'fortnightly', housing: 1200 },
+          {
+            // Charlie's salary before his pay rise.
+            id: 'p1',
+            name: 'Charlie',
+            incomes: [{ id: 'i1', name: 'Salary', amount: 1900, frequency: 'fortnightly' }],
+            expenses: [{ id: 'e1', name: 'Housing', amount: 1200, frequency: 'monthly' }],
+          },
+          {
+            id: 'p2',
+            name: 'Layla',
+            incomes: [{ id: 'i2', name: 'Salary', amount: 2200, frequency: 'fortnightly' }],
+            expenses: [{ id: 'e2', name: 'Housing', amount: 1200, frequency: 'monthly' }],
+          },
         ],
         card: { limit: 8000, splitDefault: 0.5 },
       },

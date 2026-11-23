@@ -5,6 +5,7 @@ import {
   daysSince,
   isBackupDue,
   isUpdateStale,
+  monthlyTotal,
   periodsNewestFirst,
   personalTotal,
   shareFractions,
@@ -38,6 +39,37 @@ describe('toMonthly', () => {
   })
 })
 
+describe('monthlyTotal', () => {
+  it('adds lines, converting each from its own frequency', () => {
+    expect(
+      monthlyTotal([
+        { id: 'a', name: 'Salary', amount: 2000, frequency: 'fortnightly' }, // 4,333.33
+        { id: 'b', name: 'Side job', amount: 100, frequency: 'weekly' }, // 433.33
+        { id: 'c', name: 'Bonus', amount: 1200, frequency: 'yearly' }, // 100
+        { id: 'd', name: 'Rent from flatmate', amount: 300, frequency: 'monthly' }, // 300
+      ]),
+    ).toBeCloseTo(5166.67, 2)
+  })
+
+  it('is 0 with no lines', () => {
+    expect(monthlyTotal([])).toBe(0)
+  })
+})
+
+describe('calculatePeriod – several income and expense lines', () => {
+  it('left over is monthly income − monthly expenses − total Visa owing', () => {
+    const data: AppData = structuredClone(example)
+    data.people[0].incomes.push({ id: 'i3', name: 'Side job', amount: 100, frequency: 'weekly' })
+    data.people[0].expenses.push({ id: 'e3', name: 'Car insurance', amount: 600, frequency: 'yearly' })
+    const [charlie] = calculatePeriod(data, data.periods[1]).people
+
+    expect(charlie.monthlyIncome).toBeCloseTo(4766.67, 2) // 4,333.33 + 433.33
+    expect(charlie.monthlyExpenses).toBe(1200 + 50)
+    expect(charlie.totalVisaOwing).toBe(1450)
+    expect(charlie.balance).toBeCloseTo(4766.67 - 1250 - 1450, 2)
+  })
+})
+
 describe('credit card', () => {
   it('owing is limit minus available', () => {
     expect(cardOwing(8000, 5200)).toBe(2800)
@@ -68,7 +100,7 @@ describe('credit card', () => {
   })
 
   it('splits evenly between three or more people', () => {
-    const third: Person = { id: 'p3', name: 'Sam', salary: 0, payFrequency: 'monthly', housing: 0 }
+    const third: Person = { id: 'p3', name: 'Sam', incomes: [], expenses: [] }
     const fractions = shareFractions([...example.people, third], example.card)
     expect(fractions.get('p3')).toBeCloseTo(1 / 3)
   })
@@ -89,8 +121,8 @@ describe('calculatePeriod – November (open, live values)', () => {
   })
 
   it("calculates Charlie's panel", () => {
-    expect(charlie.monthlySalary).toBeCloseTo(4333.33, 2)
-    expect(charlie.housing).toBe(1200)
+    expect(charlie.monthlyIncome).toBeCloseTo(4333.33, 2)
+    expect(charlie.monthlyExpenses).toBe(1200)
     expect(charlie.personalPurchases).toBe(100)
     expect(charlie.sharedVisaOwing).toBe(1350)
     expect(charlie.totalVisaOwing).toBe(1450)
@@ -98,7 +130,7 @@ describe('calculatePeriod – November (open, live values)', () => {
   })
 
   it("calculates Layla's panel", () => {
-    expect(layla.monthlySalary).toBeCloseTo(4766.67, 2)
+    expect(layla.monthlyIncome).toBeCloseTo(4766.67, 2)
     expect(layla.personalPurchases).toBe(0)
     expect(layla.sharedVisaOwing).toBe(1350)
     expect(layla.totalVisaOwing).toBe(1350)
@@ -106,8 +138,8 @@ describe('calculatePeriod – November (open, live values)', () => {
   })
 
   it('calculates the couple summary', () => {
-    expect(result.summary.totalSalary).toBeCloseTo(9100, 2)
-    expect(result.summary.totalHousing).toBe(2400)
+    expect(result.summary.totalIncome).toBeCloseTo(9100, 2)
+    expect(result.summary.totalExpenses).toBe(2400)
     expect(result.summary.totalVisaOwing).toBe(2800)
     expect(result.summary.balance).toBeCloseTo(3900, 2)
   })
@@ -123,7 +155,7 @@ describe('calculatePeriod – October (closed, uses snapshot)', () => {
   const [charlie, layla] = result.people
 
   it("uses Charlie's old $1,900 salary, not his current $2,000", () => {
-    expect(charlie.monthlySalary).toBeCloseTo(4116.67, 2)
+    expect(charlie.monthlyIncome).toBeCloseTo(4116.67, 2)
   })
 
   it('calculates the card and split', () => {
@@ -139,10 +171,10 @@ describe('calculatePeriod – October (closed, uses snapshot)', () => {
     expect(result.summary.balance).toBeCloseTo(3283.33, 2)
   })
 
-  it('is not changed by later edits to live salaries', () => {
+  it('is not changed by later edits to live income', () => {
     const edited: AppData = {
       ...example,
-      people: example.people.map((p) => ({ ...p, salary: 9999 })),
+      people: example.people.map((p) => ({ ...p, incomes: [{ id: 'i9', name: 'Salary', amount: 9999, frequency: 'monthly' as const }] })),
     }
     expect(calculatePeriod(edited, october)).toEqual(result)
   })

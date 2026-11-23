@@ -14,7 +14,7 @@ describe('parseSaveFile', () => {
   })
 
   it('explains files from a newer version', () => {
-    const result = parseSaveFile(JSON.stringify({ ...cloneExample(), version: 3 }))
+    const result = parseSaveFile(JSON.stringify({ ...cloneExample(), version: 4 }))
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.message).toMatch(/made by a newer version/)
   })

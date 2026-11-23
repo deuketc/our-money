@@ -22,13 +22,19 @@ describe('appDataSchema', () => {
   })
 
   it.each([
-    ['an unknown version', (d: any) => (d.version = 3)],
+    ['an unknown version', (d: any) => (d.version = 4)],
     ['an old version 1 file', (d: any) => (d.version = 1)],
     ['the retired savings fields', (d: any) => (d.savings = { goalName: 'Holiday' })],
     ['an unknown key', (d: any) => (d.people[0].isAdmin = true)],
-    ['a negative salary', (d: any) => (d.people[0].salary = -1)],
+    ['a negative income amount', (d: any) => (d.people[0].incomes[0].amount = -1)],
+    ['a negative expense amount', (d: any) => (d.people[0].expenses[0].amount = -1)],
     ['a non-number amount', (d: any) => (d.periods[1].available = '5200')],
-    ['a bad pay frequency', (d: any) => (d.people[0].payFrequency = 'daily')],
+    ['a bad frequency', (d: any) => (d.people[0].expenses[0].frequency = 'daily')],
+    ['a person without income lines', (d: any) => delete d.people[0].incomes],
+    ['the old salary and housing fields', (d: any) => Object.assign(d.people[0], { salary: 2000, payFrequency: 'fortnightly', housing: 1200 })],
+    ['duplicate line ids for a person', (d: any) => (d.people[0].expenses[0].id = 'i1')],
+    ['duplicate line ids in a snapshot', (d: any) => (d.periods[0].snapshot.people[1].expenses[0].id = 'i2')],
+    ['an old version 2 file', (d: any) => (d.version = 2)],
     ['a bad date', (d: any) => (d.periods[1].purchases[0].date = 'next Tuesday')],
     ['a purchase by an unknown person', (d: any) => (d.periods[1].purchases[0].personId = 'p9')],
     ['a missing current period', (d: any) => (d.currentPeriodId = 'pd9')],

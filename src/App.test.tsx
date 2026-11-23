@@ -9,6 +9,10 @@ const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')
 const hero = () => screen.getByRole('region', { name: 'Balance' })
 const card = (name: string) => screen.getByRole('article', { name })
 const leftOver = (name: string) => within(card(name)).getByRole('region', { name: `${name} left over` })
+/** One income or expense line on a person's card, found by its name. */
+const line = (person: string, lineName: string) => within(within(card(person)).getByRole('group', { name: lineName }))
+const purchases = (person: string) =>
+  within(card(person)).queryByRole('list', { name: `${person}'s personal purchases` })
 
 beforeEach(() => {
   localStorage.clear()
@@ -60,28 +64,85 @@ describe('with the example data', () => {
     expect(charlie.getByRole('list', { name: "Charlie's personal purchases" })).toHaveTextContent('PlayStation game')
   })
 
+  it('splits each card into Income, Expenses, Visa and Left over, in that order', () => {
+    render(<App />)
+    const headings = within(card('Charlie'))
+      .getAllByRole('heading', { level: 4 })
+      .map((h) => h.textContent)
+      .filter((text) => ['Income', 'Expenses', 'Visa', 'Left over'].includes(text ?? ''))
+    expect(headings).toEqual(['Income', 'Expenses', 'Visa', 'Left over'])
+  })
+
+  it('shows monthly income, monthly expenses and the Visa totals', () => {
+    render(<App />)
+    const charlie = within(card('Charlie'))
+    expect(charlie.getByText('Monthly income').closest('div')?.parentElement).toHaveTextContent('$4,333.33')
+    expect(charlie.getByText('Monthly expenses').closest('div')?.parentElement).toHaveTextContent('$1,200')
+    expect(charlie.getByText('Personal purchases').closest('div')?.parentElement).toHaveTextContent('$100')
+    expect(line('Charlie', 'Salary').getByLabelText('Amount')).toHaveValue('2000')
+    expect(line('Charlie', 'Salary').getByLabelText('Frequency')).toHaveValue('fortnightly')
+    expect(line('Charlie', 'Salary').getByText('$4,333.33 a month')).toBeInTheDocument()
+    expect(line('Charlie', 'Housing').getByLabelText('Amount')).toHaveValue('1200')
+  })
+
   it('turns red when the money runs out', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const salary = within(card('Charlie')).getByLabelText('Salary')
-    await user.clear(salary)
-    await user.clear(within(card('Layla')).getByLabelText('Salary'))
+    await user.clear(line('Charlie', 'Salary').getByLabelText('Amount'))
+    await user.clear(line('Layla', 'Salary').getByLabelText('Amount'))
 
     expect(hero()).toHaveTextContent("You're in the red")
     expect(hero()).toHaveTextContent('-$5,200')
-    expect(stored().people[0].salary).toBe(0)
+    expect(stored().people[0].incomes[0].amount).toBe(0)
   })
 
-  it('updates salary and pay frequency', async () => {
+  it('updates an income line’s frequency', async () => {
     const user = userEvent.setup()
     render(<App />)
-    const charlie = within(card('Charlie'))
-    await user.selectOptions(charlie.getByLabelText('Pay frequency'), 'monthly')
+    await user.selectOptions(line('Charlie', 'Salary').getByLabelText('Frequency'), 'monthly')
 
-    expect(stored().people[0].payFrequency).toBe('monthly')
+    expect(stored().people[0].incomes[0].frequency).toBe('monthly')
     // $2,000 monthly: 2000 − 1200 − 1450
     expect(leftOver('Charlie')).toHaveTextContent('-$650')
     expect(stored().lastUpdated.by).toBe('p1')
+  })
+
+  it('adds, names and removes an income line', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const charlie = within(card('Charlie'))
+    // With only one line there's nothing to remove.
+    expect(charlie.queryByRole('button', { name: 'Remove Salary' })).not.toBeInTheDocument()
+
+    await user.click(charlie.getByRole('button', { name: 'Add income' }))
+    expect(stored().people[0].incomes).toHaveLength(2)
+    // The new line's name box takes focus, so you can type straight away.
+    expect(line('Charlie', 'Income').getByLabelText('Income name')).toHaveFocus()
+    await user.keyboard('Side job')
+    await user.type(line('Charlie', 'Side job').getByLabelText('Amount'), '500')
+
+    expect(stored().people[0].incomes[1]).toMatchObject({ name: 'Side job', amount: 500, frequency: 'monthly' })
+    expect(charlie.getByText('Monthly income').closest('div')?.parentElement).toHaveTextContent('$4,833.33')
+    expect(leftOver('Charlie')).toHaveTextContent('$2,183.33')
+
+    await user.click(charlie.getByRole('button', { name: 'Remove Side job' }))
+    expect(stored().people[0].incomes.map((l: { name: string }) => l.name)).toEqual(['Salary'])
+    expect(leftOver('Charlie')).toHaveTextContent('$1,683.33')
+  })
+
+  it('adds an expense line', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const layla = within(card('Layla'))
+    await user.click(layla.getByRole('button', { name: 'Add expense' }))
+    await user.type(line('Layla', 'Expense').getByLabelText('Expense name'), 'Car insurance')
+    await user.type(line('Layla', 'Car insurance').getByLabelText('Amount'), '600')
+    await user.selectOptions(line('Layla', 'Car insurance').getByLabelText('Frequency'), 'yearly')
+
+    expect(stored().people[1].expenses[1]).toMatchObject({ name: 'Car insurance', amount: 600, frequency: 'yearly' })
+    expect(layla.getByText('Monthly expenses').closest('div')?.parentElement).toHaveTextContent('$1,250')
+    expect(leftOver('Layla')).toHaveTextContent('$2,166.67')
+    expect(stored().lastUpdated.by).toBe('p2')
   })
 
   it('adds and removes a personal purchase', async () => {
@@ -100,7 +161,7 @@ describe('with the example data', () => {
     expect(stored().periods[1].purchases).toHaveLength(2)
 
     await user.click(layla.getByRole('button', { name: 'Remove Book' }))
-    expect(layla.queryByRole('list')).not.toBeInTheDocument()
+    expect(purchases('Layla')).not.toBeInTheDocument()
     expect(stored().periods[1].purchases).toHaveLength(1)
   })
 
@@ -127,6 +188,11 @@ describe('with the example data', () => {
 
     expect(card('Layla')).toBeInTheDocument()
     expect(stored().people.map((p: { name: string }) => p.name)).toEqual(['Charlie', 'Layla'])
+    // New people start with one "Salary" income line and one "Housing" expense line.
+    expect(stored().people[1].incomes).toEqual([expect.objectContaining({ name: 'Salary', amount: 0 })])
+    expect(stored().people[1].expenses).toEqual([expect.objectContaining({ name: 'Housing', amount: 0 })])
+    expect(line('Layla', 'Salary').getByLabelText('Amount')).toBeInTheDocument()
+    expect(line('Layla', 'Housing').getByLabelText('Amount')).toBeInTheDocument()
   })
 })
 
@@ -228,7 +294,7 @@ describe('Visa, notes and closing the month', () => {
       expect(within(hero()).getByRole('button', { name: 'Close month' })).toBeInTheDocument()
       // Pinned note carried over; purchases cleared.
       expect(section('Notes').getByText('Car rego due in March')).toBeInTheDocument()
-      expect(within(card('Charlie')).queryByRole('list')).not.toBeInTheDocument()
+      expect(purchases('Charlie')).not.toBeInTheDocument()
     })
   })
 
@@ -276,7 +342,7 @@ describe('past periods', () => {
     expect(screen.getByText(/5 Oct – 5 Nov 2026 is closed/)).toBeInTheDocument()
     expect(hero()).toHaveTextContent('5 Oct – 5 Nov 2026')
     expect(hero()).toHaveTextContent('$3,283')
-    expect(within(card('Charlie')).getByLabelText('Salary')).toHaveValue('1900')
+    expect(line('Charlie', 'Salary').getByLabelText('Amount')).toHaveValue('1900')
     expect(screen.queryByRole('button', { name: 'Close month' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add person' })).not.toBeInTheDocument()
   })
@@ -286,23 +352,33 @@ describe('past periods', () => {
     render(<App />)
     await user.selectOptions(screen.getByLabelText('Period'), 'pd1')
 
-    const salary = within(card('Charlie')).getByLabelText('Salary')
+    const salary = line('Charlie', 'Salary').getByLabelText('Amount')
     await user.clear(salary)
     await user.type(salary, '1950')
     const limit = section('Shared Visa').getByLabelText('Limit')
     await user.clear(limit)
     await user.type(limit, '9000')
 
-    expect(stored().periods[0].snapshot.people[0].salary).toBe(1950)
+    expect(stored().periods[0].snapshot.people[0].incomes[0].amount).toBe(1950)
     expect(stored().periods[0].snapshot.card.limit).toBe(9000)
-    expect(stored().people[0].salary).toBe(2000)
+    expect(stored().people[0].incomes[0].amount).toBe(2000)
     expect(stored().card.limit).toBe(8000)
     // October: limit 9,000 − available 4,800 = owing 4,200
     expect(section('Shared Visa').getByText('$4,200')).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Period'), 'pd2')
     expect(section('Shared Visa').getByLabelText('Limit')).toHaveValue('8000')
-    expect(within(card('Charlie')).getByLabelText('Salary')).toHaveValue('2000')
+    expect(line('Charlie', 'Salary').getByLabelText('Amount')).toHaveValue('2000')
+  })
+
+  it("adds a line to a past period's snapshot only", async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.selectOptions(screen.getByLabelText('Period'), 'pd1')
+    await user.click(within(card('Layla')).getByRole('button', { name: 'Add expense' }))
+
+    expect(stored().periods[0].snapshot.people[1].expenses).toHaveLength(2)
+    expect(stored().people[1].expenses).toHaveLength(1)
   })
 
   it('keeps the name read-only in a past period', async () => {
@@ -328,7 +404,7 @@ describe('who made the change', () => {
     expect(screen.getByText(/Updated just now by Layla/)).toBeInTheDocument()
 
     // Editing Charlie's card is still Layla's change.
-    await user.selectOptions(within(card('Charlie')).getByLabelText('Pay frequency'), 'weekly')
+    await user.selectOptions(line('Charlie', 'Salary').getByLabelText('Frequency'), 'weekly')
     expect(stored().lastUpdated.by).toBe('p2')
   })
 
@@ -336,7 +412,7 @@ describe('who made the change', () => {
     saveState(cloneExample())
     const user = userEvent.setup()
     render(<App />)
-    await user.selectOptions(within(card('Layla')).getByLabelText('Pay frequency'), 'weekly')
+    await user.selectOptions(line('Layla', 'Salary').getByLabelText('Frequency'), 'weekly')
     expect(stored().lastUpdated.by).toBe('p2')
   })
 

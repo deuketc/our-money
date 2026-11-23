@@ -243,7 +243,7 @@ describe('Restore', () => {
 
   it('shows a friendly error for a file that fails validation', async () => {
     const tampered = cloneExample()
-    tampered.people[0].salary = -500
+    tampered.people[0].incomes[0].amount = -500
     restoreFrom('tampered.json', tampered)
     saveState(cloneExample())
     const user = userEvent.setup()
@@ -252,9 +252,9 @@ describe('Restore', () => {
     await user.click(screen.getByRole('button', { name: 'Restore' }))
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("doesn't look like an Our Money backup")
-    expect(alert).toHaveTextContent('people › 0 › salary')
+    expect(alert).toHaveTextContent('people › 0 › incomes › 0 › amount')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(stored().people[0].salary).toBe(2000)
+    expect(stored().people[0].incomes[0].amount).toBe(2000)
   })
 
   it('shows a friendly error for a file that is not JSON', async () => {

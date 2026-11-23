@@ -9,21 +9,31 @@
 import { z } from 'zod'
 
 /** The save file format this app writes. */
-export const CURRENT_VERSION = 2
+export const CURRENT_VERSION = 3
 
 const id = z.string().min(1).max(64)
 const money = z.number() // Zod rejects NaN and ±Infinity by default
 const amount = money.nonnegative()
 const isoDate = z.iso.date() // "YYYY-MM-DD"
 
-export const payFrequencySchema = z.enum(['weekly', 'fortnightly', 'monthly', 'yearly'])
+/** How often an income or expense line is paid. Converted to monthly in calculations. */
+export const frequencySchema = z.enum(['weekly', 'fortnightly', 'monthly', 'yearly'])
+
+/** One income or expense line, like "Salary $2,000 fortnightly" or "Housing $1,200 monthly". */
+export const lineSchema = z.strictObject({
+  id,
+  /** May be blank while someone is typing; the card shows a placeholder. */
+  name: z.string().max(100),
+  amount,
+  frequency: frequencySchema,
+})
 
 export const personSchema = z.strictObject({
   id,
   name: z.string().trim().min(1).max(100),
-  salary: amount,
-  payFrequency: payFrequencySchema,
-  housing: amount,
+  incomes: z.array(lineSchema),
+  /** Non-Visa costs, like housing. */
+  expenses: z.array(lineSchema),
 })
 
 export const cardSchema = z.strictObject({
@@ -99,6 +109,20 @@ export const appDataSchema = z
       issue(`Duplicate period id "${dup}"`, ['periods'])
     }
 
+    // A person's income and expense lines need unique ids so edits hit the right line.
+    const checkLines = (people: Person[], path: (string | number)[]) => {
+      people.forEach((person, i) => {
+        const lineIds = [...person.incomes, ...person.expenses].map((line) => line.id)
+        for (const dup of duplicates(lineIds)) {
+          issue(`Duplicate line id "${dup}"`, [...path, i])
+        }
+      })
+    }
+    checkLines(data.people, ['people'])
+    data.periods.forEach((period, i) => {
+      if (period.snapshot) checkLines(period.snapshot.people, ['periods', i, 'snapshot', 'people'])
+    })
+
     const current = data.periods.find((p) => p.id === data.currentPeriodId)
     if (!current) issue('currentPeriodId does not match any period', ['currentPeriodId'])
     else if (current.status !== 'open') issue('Current period must be open', ['currentPeriodId'])
@@ -139,8 +163,8 @@ export const appDataSchema = z
     }
   })
 
-
-export type PayFrequency = z.infer<typeof payFrequencySchema>
+export type Frequency = z.infer<typeof frequencySchema>
+export type BudgetLine = z.infer<typeof lineSchema>
 export type Person = z.infer<typeof personSchema>
 export type Card = z.infer<typeof cardSchema>
 export type Purchase = z.infer<typeof purchaseSchema>

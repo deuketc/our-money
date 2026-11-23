@@ -73,7 +73,7 @@ function CloseMonthDialog({
       <ul className="space-y-1.5 text-sm text-slate-600">
         <li className="flex gap-2">
           <Check className="size-4 shrink-0 text-emerald-500" aria-hidden />
-          Saved to history, with everyone’s pay and housing as they are now
+          Saved to history, with everyone’s income and expenses as they are now
         </li>
         <li className="flex gap-2">
           <Check className="size-4 shrink-0 text-emerald-500" aria-hidden />
@@ -81,7 +81,7 @@ function CloseMonthDialog({
         </li>
         <li className="flex gap-2">
           <Check className="size-4 shrink-0 text-emerald-500" aria-hidden />
-          People, pay, housing, card limit and pinned notes carry over
+          People, income, expenses, card limit and pinned notes carry over
         </li>
         <li className="flex gap-2">
           <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />

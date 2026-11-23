@@ -1,4 +1,4 @@
-import { CreditCard, Home, Sparkles, TriangleAlert, Wallet } from 'lucide-react'
+import { CreditCard, Receipt, Sparkles, TriangleAlert, Wallet } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { PeriodResult } from '../calculations'
 import { formatMoney, formatMoneyWhole } from '../format'
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function HeroBalance({ result, periodLabel, household, action }: Props) {
-  const { balance, totalSalary, totalHousing, totalVisaOwing } = result.summary
+  const { balance, totalIncome, totalExpenses, totalVisaOwing } = result.summary
   const green = balance >= 0
 
   return (
@@ -44,8 +44,8 @@ export function HeroBalance({ result, periodLabel, household, action }: Props) {
         {/* Stats bottom-left, action bottom-right. In a narrow card the action wraps under the stats, still on the right. */}
         <div className="mt-6 flex flex-wrap items-end gap-3">
           <dl className="grid w-full grid-cols-3 gap-2 text-sm sm:w-auto sm:max-w-lg sm:flex-1">
-            <HeroStat icon={<Wallet className="size-4" aria-hidden />} label="Income" value={totalSalary} />
-            <HeroStat icon={<Home className="size-4" aria-hidden />} label="Housing" value={totalHousing} />
+            <HeroStat icon={<Wallet className="size-4" aria-hidden />} label="Income" value={totalIncome} />
+            <HeroStat icon={<Receipt className="size-4" aria-hidden />} label="Expenses" value={totalExpenses} />
             <HeroStat icon={<CreditCard className="size-4" aria-hidden />} label="Visa" value={totalVisaOwing} />
           </dl>
           {action && <div className="ml-auto">{action}</div>}

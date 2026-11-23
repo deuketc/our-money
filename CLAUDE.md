@@ -5,7 +5,7 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 ## Core idea
 
 - Built for everyday households, not businesses or power users.
-- Income in, housing and card spending out, and a clear green or red balance at the end of the period.
+- Income in, expenses (like housing) and card spending out, and a clear green or red balance at the end of the period.
 - Works for one or more people. With a single user, everything just counts as theirs.
 
 ## Getting started and the period cycle
@@ -20,16 +20,20 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 - **Periods are date ranges**, not calendar months. A period starts on the day it's created (first run, or the day the previous one closed) and ends on the day it's closed; the next period starts on that same day. Each has a unique id.
 - **Labels**: closed periods show their range, like "15 Nov – 15 Dec 2026", with both years if it crosses a year ("20 Dec 2026 – 15 Jan 2027"). The open period shows "15 Dec – now". These labels are used in the period drop-down, the balance card, the closed-period banner and the Close month dialog.
 - **Close month**: a small secondary button with a calendar-check icon in the bottom-right corner of the household balance card, shown only for the open period. There's no separate Close month section. It opens a confirmation dialog titled with the range the period will be saved as ("Close 5 Nov – 15 Dec 2026?"), explaining "Close 5 Nov – 15 Dec 2026 to save it to history and start fresh", how the period finishes, that a new period starts today, and what carries over or is cleared. Confirming ends the period today and starts a fresh one today.
-- **Carries over**: people, salaries and pay frequency, housing, card limit and pinned notes.
+- **Carries over**: people, their income and expense lines, card limit and pinned notes.
 - **Cleared**: the personal purchases list and unpinned notes.
 
 ## Person panel (one per person)
 
-- **Salary**: entered with a pay frequency drop-down (weekly, fortnightly, monthly or yearly) and converted to a monthly figure. Fortnightly × 26 ÷ 12 (not × 2), so $2,000 a fortnight is about $4,333 a month. Weekly × 52 ÷ 12, yearly ÷ 12.
-- **Housing**: their share of rent or mortgage (hint text: "rent or mortgage").
-- **Shared Visa owing**: their share of the shared card spend (calculated).
-- **Total Visa owing**: shared share plus their personal purchases (calculated).
-- **Balance**: what's left over for the period (calculated, shown in green or red).
+Each card has four clearly separated sections, in this order, each with its own heading and icon and a dashed divider between them:
+
+1. **Income** (wallet icon): a list of income lines, each with a name, amount and frequency (weekly, fortnightly, monthly or yearly). New people start with one "Salary" line. "Add income" adds a line; a line can be removed while there's more than one. Shows the **monthly income** total.
+2. **Expenses** (receipt icon): the same pattern for non-Visa costs. New people start with one "Housing" line (their share of rent or mortgage). "Add expense" adds a line. Shows the **monthly expenses** total.
+3. **Visa** (card icon): their share of the shared card spend, their personal purchases list with its total, and their **total Visa owing** (shared share plus personal purchases).
+4. **Left over** (piggy bank icon): monthly income − monthly expenses − total Visa owing, shown in green or red.
+
+- **Monthly conversion**: every line is converted to a monthly figure from its own frequency. Fortnightly × 26 ÷ 12 (not × 2), so $2,000 a fortnight is about $4,333 a month. Weekly × 52 ÷ 12, yearly ÷ 12. A line that isn't monthly shows its monthly figure under it.
+- **New lines** start blank (the name box shows "Income" or "Expense" as a placeholder), at $0 monthly.
 
 ## Credit card
 
@@ -49,7 +53,7 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 
 ## Couple summary (read-only)
 
-- Total salary, total housing, total Visa and total due on the Visa.
+- Total monthly income, total monthly expenses and total Visa owing (the balance card shows these as Income, Expenses and Visa).
 - Overall household balance.
 
 ## Last updated
@@ -66,7 +70,7 @@ A simple, friendly budgeting app for couples, families or individuals who want o
 - The app opens on the current period.
 - A drop-down lets you view or edit past periods.
 - Closing a period saves it to history and starts a fresh one.
-- Decided: periods are date ranges, from the day one opens to the day it's closed, so they can follow the Visa statement dates or any other rhythm. Pay frequency is handled by the salary conversion, not by the cycle.
+- Decided: periods are date ranges, from the day one opens to the day it's closed, so they can follow the Visa statement dates or any other rhythm. How often income and expenses are paid is handled by the monthly conversion, not by the cycle.
 - The drop-down lists periods by their dates, newest first ("15 Dec – now", then "15 Nov – 15 Dec 2026" and so on).
 
 ## Data model
@@ -75,21 +79,27 @@ The file stores only what people type in. Balances and amounts owed are calculat
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "people": [
     {
       "id": "p1",
       "name": "Charlie",
-      "salary": 2000,
-      "payFrequency": "fortnightly",
-      "housing": 1200
+      "incomes": [
+        { "id": "i1", "name": "Salary", "amount": 2000, "frequency": "fortnightly" }
+      ],
+      "expenses": [
+        { "id": "e1", "name": "Housing", "amount": 1200, "frequency": "monthly" }
+      ]
     },
     {
       "id": "p2",
       "name": "Layla",
-      "salary": 2200,
-      "payFrequency": "fortnightly",
-      "housing": 1200
+      "incomes": [
+        { "id": "i2", "name": "Salary", "amount": 2200, "frequency": "fortnightly" }
+      ],
+      "expenses": [
+        { "id": "e2", "name": "Housing", "amount": 1200, "frequency": "monthly" }
+      ]
     }
   ],
   "card": { "limit": 8000, "splitDefault": 0.5 },
@@ -123,16 +133,22 @@ The file stores only what people type in. Balances and amounts owed are calculat
           {
             "id": "p1",
             "name": "Charlie",
-            "salary": 1900,
-            "payFrequency": "fortnightly",
-            "housing": 1200
+            "incomes": [
+              { "id": "i1", "name": "Salary", "amount": 1900, "frequency": "fortnightly" }
+            ],
+            "expenses": [
+              { "id": "e1", "name": "Housing", "amount": 1200, "frequency": "monthly" }
+            ]
           },
           {
             "id": "p2",
             "name": "Layla",
-            "salary": 2200,
-            "payFrequency": "fortnightly",
-            "housing": 1200
+            "incomes": [
+              { "id": "i2", "name": "Salary", "amount": 2200, "frequency": "fortnightly" }
+            ],
+            "expenses": [
+              { "id": "e2", "name": "Housing", "amount": 1200, "frequency": "monthly" }
+            ]
           }
         ],
         "card": { "limit": 8000, "splitDefault": 0.5 }
@@ -171,11 +187,12 @@ The file stores only what people type in. Balances and amounts owed are calculat
 In this example, the first period ("5 Oct – 5 Nov 2026") is closed. Its snapshot keeps Charlie's old $1,900 fortnightly salary, so it still calculates correctly after his pay rise to $2,000. The second period ("5 Nov – now") started the day the first one closed. It's open, so it has no end date yet, and it uses the live values from the top level.
 
 - **Top level** (carries over): people, card limit and default split.
+- **people**: each person has a name plus `incomes` and `expenses` arrays of lines. A line is `{ id, name, amount, frequency }`, where frequency is weekly, fortnightly, monthly or yearly. Line ids are unique within a person. A line's name can be blank while someone is typing.
 - **periods**: an array with one object per period, in the order they were created, each holding that period's dates, available amount, purchases and notes.
   - **id**: a unique id (a random UUID for new periods; "pd1" and "pd2" above are just short examples).
   - **start**: the day the period was created. **end**: the day it was closed, or `null` while it's open. A closed period's `end` is the next period's `start`, and a period can close on the day it started.
-- **snapshot**: filled in when a period closes, so it keeps the salaries and housing as they were then. Editing a salary later doesn't change past periods.
-- **version**: the file format, currently 2. Only version 2 is accepted. Files from a newer version are refused with a friendly message, and older files (version 1 used calendar months) are rejected as invalid; there's no upgrade path, because no version 1 data is kept anywhere.
+- **snapshot**: filled in when a period closes, with copies of everyone's income and expense lines and the card as they were then. Editing a line later doesn't change past periods.
+- **version**: the file format, currently 3. Only version 3 is accepted. Files from a newer version are refused with a friendly message, and older files are rejected as invalid (version 1 used calendar months; version 2 had a single salary, pay frequency and housing amount per person). There's no upgrade path, because no older data is kept anywhere.
 
 ## Tech approach
 
@@ -211,12 +228,12 @@ In this example, the first period ("5 Oct – 5 Nov 2026") is closed. Its snapsh
 - Bright and friendly style.
 - A big hero balance at the top that glows green or red, with the Close month button in its bottom-right corner.
 - Clean cards for each person, the credit card and notes.
-- Icons from Lucide or Phosphor, like a house for Housing.
+- Icons from Lucide or Phosphor, like a wallet for Income, a receipt for Expenses, a card for Visa and a piggy bank for Left over.
 - A chunky vector credit card showing the limit and available amounts on its face, with owing underneath and a usage bar that goes from green to orange to red.
 
 &#91;embedded content: Main screen wireframe · example numbers\]
 
-From top to bottom: header, hero balance (with Close month in its corner), a card for each person (income, Visa with their personal purchases, left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
+From top to bottom: header, hero balance (with Close month in its corner), a card for each person (Income, Expenses, Visa with their personal purchases, then Left over), then the Visa card with how it splits, then notes. Shaded boxes are editable; plain text is calculated. The numbers come from the example data model.
 
 ### Responsive layout
 
@@ -254,19 +271,20 @@ npx vitest run -t "renders the app"  # tests matching a name
 
 - Tailwind CSS v4 runs through the `@tailwindcss/vite` plugin. There is no `tailwind.config.js`; the CSS entry is `src/index.css` (`@import 'tailwindcss'`), and theme customisation goes there with `@theme`.
 - Vitest config is in `vite.config.ts` (`test` block): jsdom environment, tests are `src/**/*.test.{ts,tsx}`, setup in `src/test/setup.ts` (jest-dom matchers, Testing Library cleanup). Import `describe`/`it`/`expect` from `vitest`; globals are off.
-- Pure calculation functions (salary conversion, card split, balances) don't need the DOM, so test them directly without Testing Library.
+- Pure calculation functions (monthly conversion, card split, balances) don't need the DOM, so test them directly without Testing Library.
 - Vitest workers run with `--no-experimental-webstorage` (set in `vite.config.ts`); without it, Node 22+'s built-in `localStorage` replaces jsdom's and storage tests fail.
 - Test fixture: `src/test/exampleData.ts` is the example data model above. Use `cloneExample()` when a test changes it.
 
 ### Code layout
 
-- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, unique period ids, closed periods have an end date and a snapshot, open ones have neither, no period ends before it starts, purchases point to real people). Change the data shape here first. `CURRENT_VERSION` is 2 and is the only version accepted. If the format changes again and existing data must survive, add an upgrade step (a `z.preprocess` before the strict schema) rather than loosening the strict objects.
-- `src/calculations.ts`: pure derived values (monthly salary, Visa split, balances, stale-update check) and `periodsNewestFirst` (by start date; ties go to the later period in the array). Nothing derived is ever stored.
+- `src/schema.ts`: Zod schema for the save file, and the source of all data types (`z.infer`). Objects are strict and cross-references are checked (current period exists and is open, unique period ids, closed periods have an end date and a snapshot, open ones have neither, no period ends before it starts, purchases point to real people, line ids are unique within each person, live and in snapshots). Change the data shape here first. `CURRENT_VERSION` is 3 and is the only version accepted. If the format changes again and existing data must survive, add an upgrade step (a `z.preprocess` before the strict schema) rather than loosening the strict objects.
+- `src/calculations.ts`: pure derived values (`monthlyTotal` of income or expense lines, Visa split, balances, stale-update check) and `periodsNewestFirst` (by start date; ties go to the later period in the array). Nothing derived is ever stored.
 - `src/format.ts`: display formatting, including `formatPeriodRange` for the period labels ("15 Nov – 15 Dec 2026", "15 Dec – now").
-- `src/store/reducer.ts`: pure reducer. Ids, timestamps, `by` and dates arrive on the action, so it never reads the clock. `closeMonth { date, nextPeriodId }` ends the open period on `date` (a date before its start counts as the start), snapshots people and card, and opens `nextPeriodId` starting that same day with no end date; `available` resets to the card limit. `createInitialState(today, periodId)` starts the first period on `today`.
+- `src/store/reducer.ts`: pure reducer. Ids, timestamps, `by` and dates arrive on the action, so it never reads the clock. `closeMonth { date, nextPeriodId }` ends the open period on `date` (a date before its start counts as the start), snapshots people and card, and opens `nextPeriodId` starting that same day with no end date; `available` resets to the card limit. `createInitialState(today, periodId)` starts the first period on `today`. `createPerson(ids, name)` builds a new person with a "Salary" income line and a "Housing" expense line. `addLine`, `updateLine` and `removeLine` take `personId`, `list` (`'incomes'` or `'expenses'`) and an optional `periodId`.
 - `src/store/storage.ts`: local storage load/save. Data that fails validation is copied to `our-money:unreadable-backup` before the app starts fresh, so autosave can't destroy it.
 - `src/store/useAppStore.ts`: `useReducer` plus autosave. `dispatch(action, by)` adds `meta`.
-- Closed periods stay editable: `updatePerson` and `updateCard` with a closed `periodId` edit that period's `snapshot`, never the live values. Names are only editable on the live person.
+- Closed periods stay editable: the line actions and `updateCard` with a closed `periodId` edit that period's `snapshot`, never the live values. Names are only editable on the live person.
+- `src/components/PersonCard.tsx` and `LineList.tsx`: the four card sections. `LineList` renders income or expense lines as groups labelled by the line's name, with "Income name"/"Expense name", "Amount" and "Frequency" fields; the remove button only shows while there's more than one line.
 - `src/layout.ts`: `mainLayout(peopleCount)` picks the `xl:` and `3xl:` grid and placement classes for the main screen (see Responsive layout). Class names are written out in full so Tailwind finds them; jsdom ignores breakpoints, so tests check the classes and structure, not the rendered columns.
 - `src/components/styles.ts`: shared class names, including `pageWidthClass` and `fieldRowClass`.
 - `src/fileSave.ts`: the file side of Back up/Restore, through the File System Access API, falling back to download/`<input type=file>`. The file handle is kept in IndexedDB so Back up writes to the same file after a reload. A restored file only becomes the backup target once it passes validation.

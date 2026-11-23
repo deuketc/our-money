@@ -19,7 +19,7 @@ import { useLastBackup } from './lastBackup'
 import { mainLayout } from './layout'
 import { parseSaveFile } from './saveFile'
 import type { AppData, Period } from './schema'
-import type { Action } from './store/reducer'
+import { createPerson, type Action } from './store/reducer'
 import { useAppStore } from './store/useAppStore'
 import { usePreference } from './usePreference'
 
@@ -74,7 +74,10 @@ export default function App() {
   const addPerson = (name: string) => {
     const id = newId()
     const firstPerson = state.people.length === 0
-    act({ type: 'addPerson', person: { id, name, salary: 0, payFrequency: 'fortnightly', housing: 0 } })
+    act({
+      type: 'addPerson',
+      person: createPerson({ id, salaryLineId: newId(), housingLineId: newId() }, name),
+    })
     if (firstPerson) setMeId(id)
   }
 
@@ -199,8 +202,8 @@ export default function App() {
         {isClosed && (
           <p className="flex items-start gap-2 rounded-2xl bg-sky-100 px-4 py-3 text-sm font-medium text-sky-800">
             <History className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {periodLabel} is closed. It uses the pay, housing and card limit saved when it closed, so changes here only
-            affect this period.
+            {periodLabel} is closed. It uses the income, expenses and card limit saved when it closed, so changes here
+            only affect this period.
           </p>
         )}
 
@@ -241,8 +244,26 @@ export default function App() {
                 canEditName={!isClosed}
                 purchases={period.purchases.filter((p) => p.personId === person.id)}
                 defaultPurchaseDate={defaultDateFor(period)}
-                onUpdate={(changes) =>
-                  act({ type: 'updatePerson', id: person.id, changes, periodId: period.id }, person.id)
+                onRename={(name) =>
+                  act({ type: 'updatePerson', id: person.id, changes: { name }, periodId: period.id }, person.id)
+                }
+                onAddLine={(list) =>
+                  act(
+                    {
+                      type: 'addLine',
+                      personId: person.id,
+                      list,
+                      line: { id: newId(), name: '', amount: 0, frequency: 'monthly' },
+                      periodId: period.id,
+                    },
+                    person.id,
+                  )
+                }
+                onUpdateLine={(list, lineId, changes) =>
+                  act({ type: 'updateLine', personId: person.id, list, lineId, changes, periodId: period.id }, person.id)
+                }
+                onRemoveLine={(list, lineId) =>
+                  act({ type: 'removeLine', personId: person.id, list, lineId, periodId: period.id }, person.id)
                 }
                 onAddPurchase={(purchase) =>
                   act(

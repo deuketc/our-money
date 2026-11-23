@@ -5,20 +5,25 @@
 // Amounts are returned unrounded (fortnightly pay doesn't divide evenly into
 // months). Round only when displaying.
 
-import type { AppData, Card, PayFrequency, Period, Person, Purchase } from './schema'
+import type { AppData, BudgetLine, Card, Frequency, Period, Person, Purchase } from './schema'
 
-// ---------- Salary ----------
+// ---------- Income and expenses ----------
 
-const PERIODS_PER_YEAR: Record<PayFrequency, number> = {
+const PERIODS_PER_YEAR: Record<Frequency, number> = {
   weekly: 52,
   fortnightly: 26,
   monthly: 12,
   yearly: 1,
 }
 
-/** Converts pay to a monthly figure. Fortnightly is × 26 ÷ 12, not × 2. */
-export function toMonthly(amount: number, frequency: PayFrequency): number {
+/** Converts an amount to a monthly figure. Fortnightly is × 26 ÷ 12, not × 2. */
+export function toMonthly(amount: number, frequency: Frequency): number {
   return (amount * PERIODS_PER_YEAR[frequency]) / 12
+}
+
+/** Monthly total of income or expense lines, each converted from its own frequency. */
+export function monthlyTotal(lines: BudgetLine[]): number {
+  return lines.reduce((sum, line) => sum + toMonthly(line.amount, line.frequency), 0)
 }
 
 // ---------- Credit card ----------
@@ -65,12 +70,14 @@ export function shareFractions(people: Person[], card: Card): Map<string, number
 export interface PersonResult {
   personId: string
   name: string
-  monthlySalary: number
-  housing: number
+  /** All income lines, converted to monthly. */
+  monthlyIncome: number
+  /** All expense lines, converted to monthly. */
+  monthlyExpenses: number
   personalPurchases: number
   sharedVisaOwing: number
   totalVisaOwing: number
-  /** Positive = green, negative = red. */
+  /** Left over = monthly income − monthly expenses − total Visa owing. Positive = green, negative = red. */
   balance: number
 }
 
@@ -84,8 +91,8 @@ export interface PeriodResult {
     personalSpend: number
   }
   summary: {
-    totalSalary: number
-    totalHousing: number
+    totalIncome: number
+    totalExpenses: number
     totalVisaOwing: number
     balance: number
   }
@@ -93,7 +100,7 @@ export interface PeriodResult {
 
 /**
  * Calculates everything for one period. Closed periods use their snapshot,
- * so later salary or housing changes don't rewrite history. Open periods
+ * so later income or expense changes don't rewrite history. Open periods
  * use the live top-level values.
  */
 export function calculatePeriod(data: AppData, period: Period): PeriodResult {
@@ -105,19 +112,20 @@ export function calculatePeriod(data: AppData, period: Period): PeriodResult {
   const fractions = shareFractions(people, card)
 
   const results: PersonResult[] = people.map((person) => {
-    const monthlySalary = toMonthly(person.salary, person.payFrequency)
+    const monthlyIncome = monthlyTotal(person.incomes)
+    const monthlyExpenses = monthlyTotal(person.expenses)
     const personalPurchases = personalTotal(period.purchases, person.id)
     const sharedVisaOwing = shared * (fractions.get(person.id) ?? 0)
     const totalVisaOwing = sharedVisaOwing + personalPurchases
     return {
       personId: person.id,
       name: person.name,
-      monthlySalary,
-      housing: person.housing,
+      monthlyIncome,
+      monthlyExpenses,
       personalPurchases,
       sharedVisaOwing,
       totalVisaOwing,
-      balance: monthlySalary - person.housing - totalVisaOwing,
+      balance: monthlyIncome - monthlyExpenses - totalVisaOwing,
     }
   })
 
@@ -134,8 +142,8 @@ export function calculatePeriod(data: AppData, period: Period): PeriodResult {
       personalSpend: owing - shared,
     },
     summary: {
-      totalSalary: sum((r) => r.monthlySalary),
-      totalHousing: sum((r) => r.housing),
+      totalIncome: sum((r) => r.monthlyIncome),
+      totalExpenses: sum((r) => r.monthlyExpenses),
       totalVisaOwing: sum((r) => r.totalVisaOwing),
       balance: sum((r) => r.balance),
     },

@@ -2,17 +2,46 @@
 // action, so the same action always produces the same state (and tests
 // don't need to mock the clock). useAppStore fills in `meta`.
 
-import { CURRENT_VERSION, type AppData, type Card, type Note, type Person, type Purchase, type Snapshot } from '../schema'
+import {
+  CURRENT_VERSION,
+  type AppData,
+  type BudgetLine,
+  type Card,
+  type Note,
+  type Person,
+  type Purchase,
+  type Snapshot,
+} from '../schema'
+
+/** Which of a person's line lists an action targets. */
+export type LineList = 'incomes' | 'expenses'
 
 export type Action =
   | { type: 'addPerson'; person: Person }
   | {
       type: 'updatePerson'
       id: string
-      changes: Partial<Omit<Person, 'id'>>
+      changes: Partial<Pick<Person, 'name'>>
       /** A closed period: edits its snapshot instead of the live person. */
       periodId?: string
     }
+  | {
+      type: 'addLine'
+      personId: string
+      list: LineList
+      line: BudgetLine
+      /** A closed period: edits its snapshot instead of the live person. */
+      periodId?: string
+    }
+  | {
+      type: 'updateLine'
+      personId: string
+      list: LineList
+      lineId: string
+      changes: Partial<Omit<BudgetLine, 'id'>>
+      periodId?: string
+    }
+  | { type: 'removeLine'; personId: string; list: LineList; lineId: string; periodId?: string }
   | { type: 'addPurchase'; periodId: string; purchase: Purchase }
   | { type: 'removePurchase'; periodId: string; purchaseId: string }
   | {
@@ -63,14 +92,29 @@ function apply(state: AppData, action: Exclude<Action, { type: 'replaceState' }>
       if (state.people.some((p) => p.id === action.person.id)) return state
       return { ...state, people: [...state.people, action.person] }
 
-    case 'updatePerson': {
-      const edit = (people: Person[]) =>
-        people.map((p) => (p.id === action.id ? { ...p, ...action.changes } : p))
-      if (action.periodId && snapshotOf(state, action.periodId)) {
-        return updateSnapshot(state, action.periodId, (s) => ({ ...s, people: edit(s.people) }))
-      }
-      return { ...state, people: edit(state.people) }
-    }
+    case 'updatePerson':
+      return editPerson(state, action.id, action.periodId, (p) => ({ ...p, ...action.changes }))
+
+    case 'addLine':
+      return editPerson(state, action.personId, action.periodId, (p) =>
+        p[action.list].some((line) => line.id === action.line.id)
+          ? p
+          : { ...p, [action.list]: [...p[action.list], action.line] },
+      )
+
+    case 'updateLine':
+      return editPerson(state, action.personId, action.periodId, (p) => ({
+        ...p,
+        [action.list]: p[action.list].map((line) =>
+          line.id === action.lineId ? { ...line, ...action.changes } : line,
+        ),
+      }))
+
+    case 'removeLine':
+      return editPerson(state, action.personId, action.periodId, (p) => ({
+        ...p,
+        [action.list]: p[action.list].filter((line) => line.id !== action.lineId),
+      }))
 
     case 'addPurchase':
       return updatePeriod(state, action.periodId, (period) => ({
@@ -114,6 +158,36 @@ function apply(state: AppData, action: Exclude<Action, { type: 'replaceState' }>
     case 'closeMonth':
       return closeMonth(state, action.date, action.nextPeriodId)
   }
+}
+
+/**
+ * Edits one person: the snapshot copy when `periodId` is a closed period,
+ * otherwise the live person. Returns the same state if nothing changed.
+ */
+function editPerson(
+  state: AppData,
+  personId: string,
+  periodId: string | undefined,
+  edit: (person: Person) => Person,
+): AppData {
+  const apply = (people: Person[]) => {
+    let changed = false
+    const next = people.map((p) => {
+      if (p.id !== personId) return p
+      const edited = edit(p)
+      if (edited !== p) changed = true
+      return edited
+    })
+    return changed ? next : people
+  }
+  if (periodId && snapshotOf(state, periodId)) {
+    return updateSnapshot(state, periodId, (s) => {
+      const people = apply(s.people)
+      return people === s.people ? s : { ...s, people }
+    })
+  }
+  const people = apply(state.people)
+  return people === state.people ? state : { ...state, people }
 }
 
 function snapshotOf(state: AppData, periodId: string): Snapshot | null {
@@ -205,5 +279,18 @@ export function createInitialState(today: string, periodId: string): AppData {
       },
     ],
     lastUpdated: null,
+  }
+}
+
+/**
+ * A new person, starting with one "Salary" income line and one "Housing"
+ * expense line, both at $0. Ids come in from the caller to keep this pure.
+ */
+export function createPerson(ids: { id: string; salaryLineId: string; housingLineId: string }, name: string): Person {
+  return {
+    id: ids.id,
+    name,
+    incomes: [{ id: ids.salaryLineId, name: 'Salary', amount: 0, frequency: 'fortnightly' }],
+    expenses: [{ id: ids.housingLineId, name: 'Housing', amount: 0, frequency: 'monthly' }],
   }
 }
